@@ -1,75 +1,37 @@
-import Head from "next/head";
-import Image from "next/image";
+"use client";
+
+import Head from 'next/head';
+import Image from 'next/image';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import TabBar from '../components/TabBar';
 
 export default function Home() {
   return (
     <>
       <Head>
-        <title>RapiMoni – Your credit, instantly</title>
-        <meta
-          name="description"
-          content="Instant, zero-interest BNPL microloans with automatic liquidation and yield stacking."
-        />
+        <title>RapiMoni – Empowering Purchases, Empowering You</title>
+        <meta name="description" content="QR/URL payments & one-loan-at-once BNPL in MXNe/BRZ, backed by USDC." />
       </Head>
-
-      <div className="min-h-screen bg-primary text-white flex flex-col">
-        {/* Nav Bar */}
-        <nav className="fixed top-0 w-full bg-primary/95 backdrop-blur-sm z-50">
-          <div className="max-w-6xl mx-auto flex items-center justify-between py-4 px-6">
-            <Image
-              src="/logo-dark.png"
-              alt="RapiMoni Logo"
-              width={107}
-              height={36}
-            />
-            <ul className="hidden md:flex space-x-8 text-lg">
-              <li>
-                <a href="#features" className="hover:underline">
-                  Features
-                </a>
-              </li>
-              <li>
-                <a href="#how-it-works" className="hover:underline">
-                  How It Works
-                </a>
-              </li>
-              <li>
-                <a href="#partners" className="hover:underline">
-                  Partners
-                </a>
-              </li>
-            </ul>
-            <button className="px-6 py-2 bg-secondary text-primary rounded-lg font-semibold hover:bg-accent transition">
-              Get Early Access
-            </button>
-          </div>
-        </nav>
-
-        {/* Hero Section */}
-        <header className="pt-28 flex flex-col items-center text-center px-6">
-          <Image
-            src="/logo-dark.png"
-            alt="RapiMoni Logo"
-            width={240}
-            height={240}
-            priority
-          />
-          <h1 className="mt-6 text-5xl md:text-6xl font-bold text-secondary">
-            Your credit, instantly
+      <Header />
+      <main className="mt-20 mb-20 md:mb-0">
+        {/* Hero */}
+        <section className="bg-primary text-white text-center py-24 px-4">
+          <h1 className="mt-6 text-4xl md:text-5xl font-bold text-secondary">
+            Empowering Purchases, Empowering You
           </h1>
-          <p className="mt-4 text-lg md:text-2xl max-w-2xl leading-relaxed">
-            Zero-interest BNPL microloans in MXNe, backed by USDC collateral, with
-            automatic liquidation and daily lender rewards.
+          <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto">
+            Scan a QR or click a link to pay instantly in MXNe/BRZ/USDC. Or choose zero-interest BNPL—one loan at a time, with USDC collateral, automated liquidation, and daily rewards.
           </p>
-          <button className="mt-8 px-8 py-3 bg-secondary text-primary rounded-lg font-semibold hover:bg-accent transition">
-            Get Started Free
-          </button>
-        </header>
+          <a href="/auth" className="inline-block mt-8 px-8 py-3 bg-secondary text-primary rounded-lg font-semibold hover:bg-accent transition">
+            Get Started
+          </a>
+        </section>
 
         {/* Partners / Trust Logos */}
         <section
           id="partners"
-          className="mt-20 flex flex-wrap justify-center items-center gap-12 bg-primary/80 py-8 px-4"
+          className="mt-10 flex flex-wrap justify-center items-center gap-12 bg-primary/80 py-8 px-4"
         >
           {/* Replace with real SVGs */}
           <Image
@@ -93,113 +55,81 @@ export default function Home() {
           />
         </section>
 
-        {/* Feature Grid */}
-        <section
-          id="features"
-          className="max-w-6xl mx-auto px-6 py-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
-          <h2 className="col-span-full text-4xl font-semibold text-center mb-10">
-            Core Features
-          </h2>
-
-          {/* Grid cards */}
+        {/* Features */}
+        <section id="features" className="max-w-6xl mx-auto px-4 py-20 grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {[
-            {
-              title: "Automatic Liquidation",
-              desc: "On-chain swaps via Aerodrome’s USDC/MXNe pool if collateral dips below threshold.",
-            },
-            {
-              title: "Yield Stacking",
-              desc: "Idle USDC earns ~3–6% APR on Aave Base v3 and is distributed daily.",
-            },
-            {
-              title: "Fair Fee Split",
-              desc: "Merchant fees split 90% to lenders, 10% to RapiMoni Treasury.",
-            },
-            {
-              title: "Zero-Interest Loans",
-              desc: "Borrow MXNe with 120% USDC collateral, repay over 1–6 months with no interest.",
-            },
-            {
-              title: "Secure Collateral",
-              desc: "Over-collateralized USDC ensures lender security; Chainlink oracles power trust.",
-            },
-            {
-              title: "Optional RMP Token",
-              desc: "Phase 3 adds a gamified reward token backed by 50% of idle USDC yield.",
-            },
+            { title: 'QR/URL Payments', desc: 'Scan or click to pay—no app needed.' },
+            { title: 'One-Loan BNPL', desc: 'Single active microloan with zero interest, sponsored by merchants.' },
+            { title: 'Automated Swaps', desc: 'Seamless USDC↔MXNe/BRZ via Aerodrome.' },
+            { title: 'Multi-Rail Cash', desc: 'USDC ↔ local fiat via Coinbase On/OffRamp.' },
+            { title: 'Lender Rewards', desc: '90% loan fees to lenders, daily claims.' },
+            { title: 'Secure Collateral', desc: '120% USDC locked, Chainlink-backed pricing.' },
           ].map((f) => (
-            <div
-              key={f.title}
-              className="p-6 bg-primary/90 rounded-lg flex flex-col"
-            >
+            <div key={f.title} className="p-6 bg-primary/90 rounded-lg">
               <h3 className="text-xl font-bold mb-2">{f.title}</h3>
-              <p className="text-base leading-snug">{f.desc}</p>
+              <p className="text-base">{f.desc}</p>
             </div>
           ))}
         </section>
 
         {/* How It Works */}
-        <section
-          id="how-it-works"
-          className="bg-primary/90 py-20 px-6 text-center"
-        >
-          <h2 className="text-4xl font-semibold mb-12">How It Works</h2>
+        <section id="customers" className="bg-primary/90 py-20 px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-semibold mb-12">How It Works: Customers</h2>
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
-              {
-                step: "1",
-                title: "Lend MXNe",
-                desc: "Deposit MXNe to earn daily rewards from merchant fees.",
-              },
-              {
-                step: "2",
-                title: "Request Loan",
-                desc: "Borrow MXNe instantly with 120% USDC collateral for purchases.",
-              },
-              {
-                step: "3",
-                title: "Repay & Unlock",
-                desc: "Repay zero-interest monthly and reclaim your USDC collateral.",
-              },
+              { step: '1', title: 'Pay', desc: 'Scan QR / URL → confirm → complete payment or BNPL flow.' },
+              { step: '2', title: 'BNPL Collateral', desc: 'Deposit 120% USDC → one active microloan.' },
+              { step: '3', title: 'Repay & Unlock', desc: 'Monthly zero-interest repayments → unlock USDC.' },
             ].map((s) => (
               <div key={s.step}>
-                <div className="mx-auto mb-4 w-16 h-16 bg-secondary rounded-full flex items-center justify-center text-xl font-bold">
-                  {s.step}
-                </div>
-                <h4 className="text-xl font-bold mb-2">{s.title}</h4>
-                <p className="text-base leading-relaxed">{s.desc}</p>
+                <div className="mx-auto mb-4 w-12 h-12 bg-secondary rounded-full flex items-center justify-center text-lg font-bold">{s.step}</div>
+                <h4 className="text-lg font-semibold mb-2">{s.title}</h4>
+                <p className="text-base">{s.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section className="text-center py-16 bg-secondary text-primary">
-          <h3 className="text-3xl font-semibold mb-4">
-            Ready to get started?
-          </h3>
-          <button className="px-8 py-3 bg-primary text-white rounded-lg font-semibold hover:opacity-90 transition">
-            Join RapiMoni Today
-          </button>
+        {/* How It Works */}
+        <section id="merchants" className="bg-primary/90 py-20 px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-semibold mb-12">How It Works: Merchants</h2>
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+            {[
+              { step: '1', title: 'Charge', desc: 'Generate QR / URL with payment details.' },
+              { step: '2', title: 'BNPL', desc: 'Enable customer microloans with your favorite terms.' },
+              { step: '3', title: 'Manage', desc: 'Check payments received, and withdraw balances.' },
+            ].map((s) => (
+              <div key={s.step}>
+                <div className="mx-auto mb-4 w-12 h-12 bg-secondary rounded-full flex items-center justify-center text-lg font-bold">{s.step}</div>
+                <h4 className="text-lg font-semibold mb-2">{s.title}</h4>
+                <p className="text-base">{s.desc}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
-        {/* Footer */}
-        <footer className="bg-primary/80 text-neutral py-8 text-center">
-          <p>© {new Date().getFullYear()} RapiMoni. All rights reserved.</p>
-          <div className="mt-4 space-x-6">
-            <a href="/terms" className="hover:underline">
-              Terms
-            </a>
-            <a href="/privacy" className="hover:underline">
-              Privacy
-            </a>
-            <a href="/contact" className="hover:underline">
-              Contact
-            </a>
+        {/* How It Works */}
+        <section id="lenders" className="bg-primary/90 py-20 px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-semibold mb-12">How It Works: Lenders</h2>
+          <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
+            {[
+              { step: '1', title: 'Deposit', desc: 'Deposit funds in MXNe/BRZ' },
+              { step: '2', title: 'Yield', desc: 'View APY & claimable fees, 90% of loan fees' },
+              { step: '3', title: 'Manage', desc: 'Withdraw funds or claimable yield' },
+            ].map((s) => (
+              <div key={s.step}>
+                <div className="mx-auto mb-4 w-12 h-12 bg-secondary rounded-full flex items-center justify-center text-lg font-bold">{s.step}</div>
+                <h4 className="text-lg font-semibold mb-2">{s.title}</h4>
+                <p className="text-base">{s.desc}</p>
+              </div>
+            ))}
           </div>
-        </footer>
-      </div>
+        </section>
+
+        
+      </main>
+      <Footer />
+      <TabBar />
     </>
   );
 }
