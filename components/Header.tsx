@@ -1,10 +1,13 @@
-import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { ConnectAndSIWE } from '../components/ConnectAndSIWE';
+import { toast } from "sonner";
+import { useAccount } from "wagmi";
+import { WalletConnect } from '@/components/WalletConnect';
 
 export default function Header() {
   const [isOpen, setOpen] = useState(false);
+  const account = useAccount();
+
   return (
     <header className="fixed top-0 w-full bg-primary/95 backdrop-blur-sm z-50">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-3">
@@ -12,15 +15,25 @@ export default function Header() {
           <Image src="/logo-sm.png" alt="RapiMoni" width={120} height={32} />
         </a>
         {/* Desktop Nav */}
-        <nav className="hidden md:flex space-x-6 text-white">
-          <a href="#features" className="hover:underline">Features</a>
-          <a href="#customers" className="hover:underline">Customers</a>
-          <a href="#merchants" className="hover:underline">Merchants</a>
-          <a href="#lenders" className="hover:underline">Lenders</a>
-        </nav>
-        {/* Wallet Connect */}
+        {account.status === "connected" ? (
+          <nav className="hidden md:flex space-x-6 text-white">
+            <a href="/pay" className="hover:underline">Pay</a>
+            <a href="/charge" className="hover:underline">Charge</a>
+            <a href="/borrow" className="hover:underline">Borrow</a>
+            <a href="/lend" className="hover:underline">Lend</a>
+            <a href="/manage" className="hover:underline">Manage</a>
+          </nav>
+        ) : (
+          <nav className="hidden md:flex space-x-6 text-white">
+            <a href="#features" className="hover:underline">Features</a>
+            <a href="#customers" className="hover:underline">Customers</a>
+            <a href="#merchants" className="hover:underline">Merchants</a>
+            <a href="#lenders" className="hover:underline">Lenders</a>
+          </nav>
+
+        )}
         <div className="hidden md:block">
-          <ConnectAndSIWE />
+          <WalletConnect />
         </div>
         {/* Mobile Menu Button */}
         <button
@@ -38,13 +51,22 @@ export default function Header() {
       {/* Mobile Nav */}
       {isOpen && (
         <nav className="md:hidden bg-primary/90 px-4 py-2 space-y-2">
-          {['features', 'customers', 'merchants', 'lenders'].map((id) => (
-            <a key={id} href={`#${id}`} className="block text-white py-1 hover:underline">
-              {id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-            </a>
-          ))}
+          {account.status === "connected" ? (
+            ['pay', 'charge', 'borrow', 'lend', 'manage'].map((id) => (
+              <a key={id} href={`#${id}`} className="block text-white py-1 hover:underline">
+                {id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+              </a>
+            ))
+          ) : (
+            ['features', 'customers', 'merchants', 'lenders'].map((id) => (
+              <a key={id} href={`#${id}`} className="block text-white py-1 hover:underline">
+                {id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+              </a>
+            ))
+          )
+          }
           <div className="mt-2">
-            <ConnectAndSIWE />
+            <WalletConnect />
           </div>
         </nav>
       )}

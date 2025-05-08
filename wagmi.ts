@@ -1,10 +1,10 @@
-import { http, createConfig } from "wagmi";
+import { http, cookieStorage, createConfig, createStorage } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 import { coinbaseWallet } from "wagmi/connectors";
  
 export const cbWalletConnector = coinbaseWallet({
-  appName: "Wagmi Smart Wallet",
-  preference: "smartWalletOnly",
+  appName: "RapiMoni",
+  preference: "all",
 });
  
 export const config = createConfig({
@@ -12,6 +12,9 @@ export const config = createConfig({
   // turn off injected provider discovery
   multiInjectedProviderDiscovery: false,
   connectors: [cbWalletConnector],
+  storage: createStorage({
+    storage: cookieStorage,
+  }),
   ssr: true,
   transports: {
     [baseSepolia.id]: http(),
