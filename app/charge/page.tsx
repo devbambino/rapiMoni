@@ -78,18 +78,18 @@ export default function SellPage() {
 
     // Init QR once
     useEffect(() => {
-        console.log(`Updating payload qrRef:${qrRef.current} qrInstance:${qrInstance.current} mounted:${mounted}`);
+        console.log(`QR ref qrRef:${qrRef.current} qrInstance:${qrInstance.current} mounted:${mounted}`);
         if (mounted && qrRef.current && !qrInstance.current) {
             const qr = new QRCodeStyling({ width: 256, height: 256, data: "" });
             qrRef.current.innerHTML = "";
             qr.append(qrRef.current);
             qrInstance.current = qr;
         }
-    }, [mounted]);
+    }, [mounted, qrRef.current]);
 
     // Update payload whenever inputs change
     useEffect(() => {
-        console.log(`Updating payload qrInstance:${qrInstance.current} amount:${amount} token:${token} description:${description} allowFallback:${allowFallback} address:${address}`);
+        //console.log(`Updating payload qrInstance:${qrInstance.current} amount:${amount} token:${token} description:${description} allowFallback:${allowFallback} address:${address}`);
         if (qrInstance.current && amount && address) {
             const payload = {
                 merchant: address,
@@ -116,11 +116,11 @@ export default function SellPage() {
     return (
         <div className="min-h-screen text-white flex flex-col items-center px-4 py-12">
             <h1 className="text-3xl font-bold mb-6 mt-6">Charge Now</h1>
-            {mounted && address ? (
-                <>
-                    <div className="w-full max-w-md mx-auto p-8 border border-[#264C73] rounded-lg shadow-lg space-y-6 text-center">
-                        <h2 className="text-2xl font-semibold mb-2">Payment Details</h2>
-                        <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+            <div className="w-full max-w-md mx-auto p-8 border border-[#264C73] rounded-lg shadow-lg space-y-6 text-center">
+                <h2 className="text-2xl font-semibold mb-2">Payment Details</h2>
+                <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                {mounted && address ? (
+                    <>
                         {/* Grouped Card for Inputs */}
                         <div className="p-6 space-y-4 mb-4">
                             <Input
@@ -146,7 +146,8 @@ export default function SellPage() {
                                 <option value="mxn">MXN</option>
                                 <option value="usd">USD</option>
                             </select>
-                            <label className="inline-flex items-center space-x-2">
+                            {token !== "usd" && (
+                                <label className="inline-flex items-center space-x-2">
                                 <input
                                     type="checkbox"
                                     checked={allowFallback}
@@ -154,48 +155,51 @@ export default function SellPage() {
                                 />
                                 <span>USD fallback <span className="text-sm text-[#50e2c3]">(Receive USD if customer doesn't have local currency)</span></span>
                             </label>
+                            )}
+                            
                         </div>
                         {/* Subtotal */}
                         {amount && !isNaN(Number(amount)) && (
                             <div className="text-lg font-medium text-[#50e2c3] mb-2">
-                                You will receive {fiat}{(Number(amount) - fee).toFixed(2)}* {quote && (
+                                You will receive {fiat}{(Number(amount) - fee).toFixed(Number(amount) < 0.999 ? 3 : 2)}* {quote && (
                                     <>
-                                        (≈ $USD {(Number(quote) - feeUsd).toFixed(2)})
-                                        <br /><span className="text-xs text-white">($USD 1  ≈ {fiat}{(Number(amount) / Number(quote)).toFixed(2)})</span>
+                                        (≈ $USD {(Number(quote) - feeUsd).toFixed(Number(amount) < 0.999 ? 3 : 2)})
+                                        <br /><span className="text-xs text-white">($USD 1  ≈ {fiat}{(Number(amount) / Number(quote)).toFixed(Number(amount) < 0.999 ? 3 : 2)})</span>
                                     </>
                                 )}
-                                <br /><span className="text-xs text-white">*Including 1% fee of {fiat}{(Number(fee)).toFixed(2)} {quote && (`(≈ $USD ${(Number(feeUsd)).toFixed(2)})`)}</span>
+                                <br /><span className="text-xs text-white">*Including 1% fee of {fiat}{(Number(fee)).toFixed(Number(amount) < 0.999 ? 3 : 2)} {quote && (`(≈ $USD ${(Number(feeUsd)).toFixed(Number(amount) < 0.999 ? 3 : 2)})`)}</span>
                             </div>
                         )}
-                        {/* QR and Copy Link */}
-                        <div className="flex flex-col items-center space-y-2 mt-6">
-                            <div ref={qrRef} className="mb-2" />
-                            {link && (
-                                <Button
-                                    title={copied ? "Copied!" : "Copy payment link"}
-                                    onClick={handleCopy}
-                                    variant="default"
-                                    size="sm"
-                                    className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full"
-                                />
-                            )}
-                        </div>
-                        {/* JSON Preview */}
-                        {payload && (
-                            <div className="bg-gray-900 rounded-md p-4 mt-4 text-left text-xs text-gray-300 overflow-x-auto">
-                                <div className="font-bold text-yellow-400 mb-1">Payment Payload Preview</div>
-                                <pre>{payload}</pre>
-                            </div>
-                        )}
+                    </>
+                ) : (
+                    <div className="mt-8">
+                        <p className="text-lg text-gray-500">
+                            Please connect your wallet to generate the payment QR code.
+                        </p>
                     </div>
-                </>
-            ) : (
-                <div className="mt-8">
-                    <p className="text-lg text-gray-500">
-                        Please connect your wallet to generate the payment QR code.
-                    </p>
+                )}
+
+                {/* QR and Copy Link */}
+                <div className="flex flex-col items-center space-y-2 mt-6">
+                    <div ref={qrRef} className="mb-2" />
+                    {link && (
+                        <Button
+                            onClick={handleCopy}
+                            variant="default"
+                            size="sm"
+                            className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full"
+                        >{copied ? "Copied!" : "Copy payment link"}</Button>
+                    )}
                 </div>
-            )}
+                {/* JSON Preview */}
+                {payload && (
+                    <div className="bg-gray-900 rounded-md p-4 mt-4 text-left text-xs text-gray-300 overflow-x-auto">
+                        <div className="font-bold text-[#50e2c3] mb-1">Payment Payload Preview</div>
+                        <pre>{payload}</pre>
+                    </div>
+                )}
+            </div>
+
         </div>
     );
 }

@@ -3,22 +3,35 @@
 import { useState, useEffect } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Button } from "@/components/ui/button";
-import { useAccount, usePublicClient, useReadContract } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
 import { useToast } from "@/components/ui/toastprovider";
 import stableTokenAbiJson from "@/lib/usdc-abi.json";
-import {  formatUnits } from "viem";
+import { usdcAbi } from "@/lib/usdc-abi";
+import { useWriteContracts } from 'wagmi/experimental'
 
-const rate = Number(process.env.NEXT_PUBLIC_EQUIPAY_FEE); // Fee rate charged per payment
+const rate = Number(process.env.NEXT_PUBLIC_RAPIMONI_FEE); // Fee rate charged per payment
 const rapiMoniAddress = process.env.NEXT_PUBLIC_RAPIMONI_WALLET; // wallet address for collecting fees
 
 const USDTokenAddress = process.env.NEXT_PUBLIC_USD_ADDRESS; // Testnet
 const MXNTokenAddress = process.env.NEXT_PUBLIC_MXN_ADDRESS; // Testnet
 const BRZTokenAddress = process.env.NEXT_PUBLIC_BRZ_ADDRESS; // Testnet
+const mockMerchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS; // Testnet
+
+const abi = [
+    {
+        stateMutability: 'nonpayable',
+        type: 'function',
+        inputs: [{ name: 'to', type: 'address' }],
+        name: 'safeMint',
+        outputs: [],
+    }
+] as const;
 
 export default function PayPage() {
-    const client = usePublicClient();
     const stableTokenAbi = stableTokenAbiJson.abi;
     const { address } = useAccount();
+    const { writeContractAsync } = useWriteContract();
+    const { writeContractsAsync } = useWriteContracts();
     const [payload, setPayload] = useState<{
         merchant: string;
         description: string
@@ -43,17 +56,25 @@ export default function PayPage() {
         }
     };
 
-    const getBalance = async (token: string, account: `0x${string}`) => {
-        let decimals = 18;
-        if (token === process.env.NEXT_PUBLIC_USDC_ADDRESS!) { decimals = 6; }
-        const bal: any = useReadContract({
-            address: token as `0x${string}`,
-            abi: stableTokenAbi,
-            functionName: "balanceOf",
-            args: [account],
-        });
+    const merchantTokenAddress = payload ? getTokenAddress(payload.token) : undefined;
 
-        return formatUnits(bal as bigint, decimals).toString();
+    const balanceInMerchantsTokenData = useBalance({
+        address,
+        token: merchantTokenAddress as `0x${string}` | undefined,
+    });
+
+    const balanceInUSDData = useBalance({
+        address,
+        token: USDTokenAddress as `0x${string}` | undefined,
+    });
+
+    const getBalance = () => {
+        console.log("getBalance balanceInUSD", balanceInUSDData);
+        console.log("getBalance balanceInMerchantsToken", balanceInMerchantsTokenData);
+
+        //let decimals = 18;
+        //if (token === process.env.NEXT_PUBLIC_USDC_ADDRESS!) { decimals = 6; }
+        //return result.data ? formatUnits(result.data.value, decimals) : "0";
     };
 
     // QR decoded
@@ -72,6 +93,8 @@ export default function PayPage() {
         }
     };
 
+    //const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({hash,});
+
     // Decide which path
     const onPay = async () => {
         if (!payload || !address) return;
@@ -80,15 +103,58 @@ export default function PayPage() {
         const tokenAddress = getTokenAddress(token);
         try {
             // 1) Direct pay in same token
-            let balanceInMerchantsToken = await getBalance(tokenAddress, address);
+            getBalance();
+            let balanceInMerchantsToken = balanceInMerchantsTokenData.data?.formatted;
             console.log("balanceInMerchantsToken", balanceInMerchantsToken);
-            if (+balanceInMerchantsToken >= +amount) {
+            if (+balanceInMerchantsToken! >= +amount) {
                 //Payment to the merchant
                 let fee = rate * Number(amount);
                 const amountWithFee = (Number(amount) - fee).toFixed(3);
-                /*const hash = await sendERC20(tokenAddress, merchant, amountWithFee, address);
-                //console.log("onPay localToken merchant", hash);
-                setTxHash(hash);
+                console.log(`amountWithFee:${amountWithFee} fee:${fee}`);
+
+                //Payment to rapimoni 
+                let balanceAfterPayment = Number(balanceInMerchantsToken) - +amountWithFee;
+                let adjustedFee = fee;
+                if (balanceAfterPayment < fee) { adjustedFee = balanceAfterPayment; }
+                const hashPay = await writeContractsAsync({
+                    contracts: [
+                        {
+                            address: tokenAddress as `0x${string}`,
+                            abi: usdcAbi,
+                            functionName: 'transfer',
+                            args: [
+                                mockMerchantAddress as `0x${string}`,
+                                +amountWithFee * 1000000,
+                                // Optional data
+                            ],
+                        },
+                        {
+                            abi: usdcAbi,
+                            address: tokenAddress as `0x${string}`,
+                            functionName: 'transfer',
+                            args: [
+                                rapiMoniAddress! as `0x${string}`,
+                                adjustedFee * 1000000,
+                                // Optional data
+                            ],
+                        }
+                    ],
+                });
+                console.log("onPay localToken total", hashPay);
+                setTxHash(hashPay.id);
+
+                /*const hashPayment = await writeContractAsync({
+                    abi: stableTokenAbi,
+                    address: tokenAddress as `0x${string}`,
+                    functionName: 'transfer',
+                    args: [
+                        mockMerchantAddress as `0x${string}`, // Replace with recipient's address
+                        +amountWithFee * 1000000,          // Example: Transfer X USDC
+                        // Optional data
+                    ],
+                });
+                console.log("onPay localToken merchant", hashPayment);
+                setTxHash(hashPayment);
 
                 await new Promise(res => setTimeout(res, waitingTime));
 
@@ -96,10 +162,18 @@ export default function PayPage() {
                 let balanceAfterPayment = Number(balanceInMerchantsToken) - +amountWithFee;
                 let adjustedFee = fee;
                 if (balanceAfterPayment < fee) { adjustedFee = balanceAfterPayment; }
-                const hashFee = await sendERC20(tokenAddress, rapiMoniAddress!, `${adjustedFee}`, address);
-                //console.log("onPay localToken fee", hashFee);
-                setTxHash(hashFee);
-                */
+                const hashFee = await writeContractAsync({
+                    abi: stableTokenAbi,
+                    address: tokenAddress as `0x${string}`,
+                    functionName: 'transfer',
+                    args: [
+                        rapiMoniAddress! as `0x${string}`, // Replace with recipient's address
+                        adjustedFee * 1000000,          // Example: Transfer X USDC
+                        // Optional data
+                    ],
+                });
+                console.log("onPay localToken fee", hashFee);
+                setTxHash(hashFee);*/
 
                 setStep("done");
                 showToast("Payment done!", "success");
@@ -107,15 +181,16 @@ export default function PayPage() {
             }
 
             // 2) Paying with USD
-            let balanceInFallbackToken = await getBalance(USDTokenAddress!, address);
-            if (+balanceInFallbackToken < 0) {
+            let balanceInFallbackToken = balanceInUSDData.data?.formatted;
+            console.log("balanceInMerchantsToken", balanceInMerchantsToken);
+            if (+balanceInFallbackToken! < 0) {
                 showToast(`Insufficient balance, please add ${token.toUpperCase()} or USD to your wallet and try again later.`, "error");
                 return;
             }
 
             const adjustedQuote = amount;
             setQuote(adjustedQuote);
-            if (+balanceInFallbackToken >= +adjustedQuote) {
+            if (+balanceInFallbackToken! >= +adjustedQuote) {
                 //Not enough balance in merchants token, but enough in USD
                 if (allowFallback) {
                     // 2) Send USD directly
@@ -136,22 +211,30 @@ export default function PayPage() {
                 return;
             }
         } catch (err: any) {
-            //console.error("Pay Error onPay:", err);
+            console.error("Pay Error onPay:", err);
             // Extract a string error message from the error object
             const errorStr =
                 typeof err === "string"
                     ? err
                     : err?.message || err?.reason || JSON.stringify(err);
+
             if (errorStr.includes("no valid median")) {
                 //Trading temporarily paused.  Unable to determine accurately X to USDC exchange rate now. Please try again later.
                 showToast(
                     `The oracle for the ${token.toUpperCase()}/USD pair is temporarily not working. Please try again later or use another currency.`,
                     "error"
                 );
+            } else if (errorStr.includes("cancelled transaction")) {
+                showToast(
+                    `You rejected the request, please try again when you are ready to make the payment.`,
+                    "error"
+                );
             } else {
                 showToast("An error occurred while processing the payment. Please try again later.", "error");
             }
-            setStep("scan");
+
+            if (payload) { setStep("decide"); } else { setStep("scan"); }
+
         } finally {
             setIsLoading(false);
         }
@@ -166,7 +249,8 @@ export default function PayPage() {
         try {
             if (isSwapRequired) {
                 // 3) Swap USD to  merchant currency
-                const currentBalance = await getBalance(tokenAddress, address);
+                let currentBalance = balanceInUSDData.data?.formatted;
+                console.log("currentBalance", currentBalance);
                 showToast(`Insufficient balance in ${token.toUpperCase()}, please add more USD and try again later.`, "error");
 
             } else {
@@ -269,7 +353,7 @@ export default function PayPage() {
                                 <p>
                                     You’ll pay <strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong> {payload?.description ? (<>for {payload?.description}</>) : ("")}
                                 </p>
-                                <Button onClick={onPay} title={`Pay ${payload.amount} ${payload.token.toLocaleUpperCase()}`} disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full" />
+                                <Button onClick={onPay} disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{`Pay ${payload.amount} ${payload.token.toLocaleUpperCase()}`}</Button>
                             </>
                         )}
                         {step === "confirm" && (
@@ -282,7 +366,7 @@ export default function PayPage() {
                                         </>
                                     )}
                                 </p>
-                                <Button onClick={onConfirmSwap} title="Confirm & Pay" disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full" />
+                                <Button onClick={onConfirmSwap} disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Confirm & Pay</Button>
                             </>
                         )}
                         {step === "done" && txHash && (
@@ -292,7 +376,7 @@ export default function PayPage() {
                                         <strong>{quote} USD</strong> (≈ {payload?.amount} {payload?.token.toLocaleUpperCase()})
                                     </>
                                     ) : (<strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong>)} to the merchant!</p>
-                                <Button onClick={() => setStep("init")} title="New Payment" disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full" />
+                                <Button onClick={() => setStep("init")} disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">New Payment</Button>
                             </>
                         )}
                         {/* Scanner is only shown if step is scan and payload is not set */}
