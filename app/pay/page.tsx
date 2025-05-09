@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Button } from "@/components/ui/button";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useReadContract, useSimulateContract } from "wagmi";
 import { useToast } from "@/components/ui/toastprovider";
-import stableTokenAbiJson from "@/lib/usdc-abi.json";
 import { usdcAbi } from "@/lib/usdc-abi";
+import { poolAbi } from "@/lib/simplepool-abi";
 import { useWriteContracts } from 'wagmi/experimental'
+import { parseUnits, formatUnits } from 'viem';
 
 const rate = Number(process.env.NEXT_PUBLIC_RAPIMONI_FEE); // Fee rate charged per payment
 const rapiMoniAddress = process.env.NEXT_PUBLIC_RAPIMONI_WALLET; // wallet address for collecting fees
@@ -16,22 +17,12 @@ const USDTokenAddress = process.env.NEXT_PUBLIC_USD_ADDRESS; // Testnet
 const MXNTokenAddress = process.env.NEXT_PUBLIC_MXN_ADDRESS; // Testnet
 const BRZTokenAddress = process.env.NEXT_PUBLIC_BRZ_ADDRESS; // Testnet
 const mockMerchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS; // Testnet
-
-const abi = [
-    {
-        stateMutability: 'nonpayable',
-        type: 'function',
-        inputs: [{ name: 'to', type: 'address' }],
-        name: 'safeMint',
-        outputs: [],
-    }
-] as const;
+const poolMXNeUSDCAddress = process.env.NEXT_PUBLIC_POOL_MXN_USD; // Testnet
 
 export default function PayPage() {
-    const stableTokenAbi = stableTokenAbiJson.abi;
     const { address } = useAccount();
-    const { writeContractAsync } = useWriteContract();
     const { writeContractsAsync } = useWriteContracts();
+    const { writeContract } = useWriteContract();
     const [payload, setPayload] = useState<{
         merchant: string;
         description: string
@@ -42,6 +33,8 @@ export default function PayPage() {
     const [step, setStep] = useState<"init" | "scan" | "decide" | "confirm" | "done">("init");
     const [quote, setQuote] = useState<string>("");
     const [txHash, setTxHash] = useState<string>("");
+    const [reservesUSD, setReservesUSD] = useState<bigint>();
+    const [reservesMXN, setReservesMXN] = useState<bigint>();
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isSwapRequired, setIsSwapRequired] = useState<boolean>(false);
     const [waitingTime, setWaitingTime] = useState<number>(1500);//2 seconds
@@ -68,14 +61,43 @@ export default function PayPage() {
         token: USDTokenAddress as `0x${string}` | undefined,
     });
 
-    const getBalance = () => {
-        console.log("getBalance balanceInUSD", balanceInUSDData);
-        console.log("getBalance balanceInMerchantsToken", balanceInMerchantsTokenData);
+    const {
+        data: reservesData,
+        isError: reservesIsError,
+        isPending: reservesIsPending,
+    } = useReadContract({
+        address: poolMXNeUSDCAddress as `0x${string}`,
+        abi: poolAbi,
+        functionName: 'getReserves',
+    });
 
-        //let decimals = 18;
-        //if (token === process.env.NEXT_PUBLIC_USDC_ADDRESS!) { decimals = 6; }
-        //return result.data ? formatUnits(result.data.value, decimals) : "0";
-    };
+    useEffect(() => {
+        if (reservesData) {
+            const [r0, r1] = reservesData as [bigint, bigint];
+            console.log('reserves r0:', r0, ' r1:', r1);
+            setReservesUSD(r0);
+            setReservesMXN(r1);
+        }
+    }, [reservesData]);
+
+    const { data: approveConfig } = useSimulateContract({
+        address: USDTokenAddress as `0x${string}`,
+        abi: usdcAbi,
+        functionName: 'approve',
+        args: [poolMXNeUSDCAddress! as `0x${string}`, parseUnits(quote, 6)],
+    });
+    const { data: swapConfig } = useSimulateContract({
+        address: poolMXNeUSDCAddress as `0x${string}`,
+        abi: poolAbi,
+        functionName: 'swap',
+        args: [
+            parseUnits("0", 6),                                 // amount0Out = tMXNe amount is output1?
+            parseUnits((payload ? +payload?.amount! : 0).toFixed(6), 6), // amount1Out = tMXNe
+            address!                           // recipient
+        ],
+    });
+    const { writeContract: swap, isPending: swapIsPending } = useWriteContract();
+
 
     // QR decoded
     const handleScan = (detectedCodes: { rawValue: string }[]) => {
@@ -103,7 +125,6 @@ export default function PayPage() {
         const tokenAddress = getTokenAddress(token);
         try {
             // 1) Direct pay in same token
-            getBalance();
             let balanceInMerchantsToken = balanceInMerchantsTokenData.data?.formatted;
             console.log("balanceInMerchantsToken", balanceInMerchantsToken);
             if (+balanceInMerchantsToken! >= +amount) {
@@ -182,15 +203,39 @@ export default function PayPage() {
 
             // 2) Paying with USD
             let balanceInFallbackToken = balanceInUSDData.data?.formatted;
-            console.log("balanceInMerchantsToken", balanceInMerchantsToken);
+            console.log("balanceInFallbackToken", balanceInFallbackToken);
             if (+balanceInFallbackToken! < 0) {
                 showToast(`Insufficient balance, please add ${token.toUpperCase()} or USD to your wallet and try again later.`, "error");
                 return;
             }
 
-            const adjustedQuote = amount;
+            // 2. Compute amountOut via x*y=k => y₂ = reserve1 - k/(reserve0 + amountIn), with r0=USDC, and r1=MXNe
+            // amountIn in USDC
+            /*let amountOut = 0;
+            if (reserves) {
+                const [r0, r1] = reserves as [bigint, bigint];
+                const amIn = BigInt(Math.floor(amountIn * 1e6)); // 6 decimals
+                const k = BigInt(r0) * BigInt(r1);
+                const newR0 = BigInt(r0) + amIn;
+                const newR1 = k / newR0;
+                amountOut = Number((BigInt(r1) - newR1)) / 1e6;
+            }*/
+            // amountIn in MXN
+            let amountOut = 0;
+            console.log("reserves", reservesData);
+            if (reservesData) {
+                const [r0, r1] = reservesData as [bigint, bigint];
+                const amIn = BigInt(Math.floor(+amount * 1e6)); // 6 decimals
+                const k = BigInt(r0) * BigInt(r1);
+                const newR1 = BigInt(r1) + amIn;
+                const newR0 = k / newR1;
+                amountOut = Number((BigInt(r0) - newR0)) / 1e6;
+            }
+
+            const adjustedQuote = `${amountOut}`;
             setQuote(adjustedQuote);
-            if (+balanceInFallbackToken! >= +adjustedQuote) {
+
+            if (+balanceInFallbackToken! >= amountOut) {
                 //Not enough balance in merchants token, but enough in USD
                 if (allowFallback) {
                     // 2) Send USD directly
@@ -251,7 +296,50 @@ export default function PayPage() {
                 // 3) Swap USD to  merchant currency
                 let currentBalance = balanceInUSDData.data?.formatted;
                 console.log("currentBalance", currentBalance);
-                showToast(`Insufficient balance in ${token.toUpperCase()}, please add more USD and try again later.`, "error");
+
+                writeContract(approveConfig!.request);
+                await new Promise(r => setTimeout(r, 1500));
+                swap({
+                    address: poolMXNeUSDCAddress as `0x${string}`,
+                    abi: poolAbi,
+                    functionName: 'swap',
+                    args: [
+                        parseUnits("0", 6),                                 // amount0Out = tMXNe amount is output1?
+                        parseUnits((payload ? +payload?.amount! : 0).toFixed(6), 6), // amount1Out = tMXNe
+                        address!                           // recipient
+                    ],
+                });
+
+                /*
+                // 2) Wait a few seconds or for the approval tx
+                await new Promise(r => setTimeout(r, 3000));
+                writeContract(swapConfig!.request);
+                const hashSwap = await writeContractsAsync({
+                    contracts: [
+                        {
+                            address: USDTokenAddress as `0x${string}`,
+                            abi: usdcAbi,
+                            functionName: 'approve',
+                            args: [poolMXNeUSDCAddress! as `0x${string}`, parseUnits(quote, 6)],
+                        },
+                        {
+                            address: poolMXNeUSDCAddress as `0x${string}`,
+                            abi: poolAbi,
+                            functionName: 'swap',
+                            args: [
+                                parseUnits("0", 6),                                 // amount0Out = tMXNe amount is output1?
+                                parseUnits((payload ? +payload?.amount! : 0).toFixed(6), 6), // amount1Out = tMXNe
+                                address!                           // recipient
+                            ],
+                        }
+                    ],
+                });
+                console.log("onSwap localToken total", hashSwap);*/
+
+                setStep("done");
+                showToast("Payment done!", "success");
+
+                //showToast(`Insufficient balance in ${token.toUpperCase()}, please add more USD and try again later.`, "error");
 
             } else {
                 //2) Send USD directly
