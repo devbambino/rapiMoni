@@ -81,13 +81,19 @@ export default function PayPage() {
     }, [reservesData]);
 
     const { data: approveConfig } = useSimulateContract({
-        address: USDTokenAddress as `0x${string}`,
+        address: USDTokenAddress! as `0x${string}`,
         abi: usdcAbi,
         functionName: 'approve',
         args: [poolMXNeUSDCAddress! as `0x${string}`, parseUnits(quote, 6)],
     });
+    const { data: transferConfig } = useSimulateContract({
+        address: USDTokenAddress! as `0x${string}`,
+        abi: usdcAbi,
+        functionName: 'transfer',
+        args: [poolMXNeUSDCAddress! as `0x${string}`, parseUnits(quote, 6)],
+    });
     const { data: swapConfig } = useSimulateContract({
-        address: poolMXNeUSDCAddress as `0x${string}`,
+        address: poolMXNeUSDCAddress! as `0x${string}`,
         abi: poolAbi,
         functionName: 'swap',
         args: [
@@ -296,8 +302,11 @@ export default function PayPage() {
                 // 3) Swap USD to  merchant currency
                 let currentBalance = balanceInUSDData.data?.formatted;
                 console.log("currentBalance", currentBalance);
+                console.log('reserves usd:', reservesUSD, ' mxn:', reservesMXN);
 
-                writeContract(approveConfig!.request);
+                /*writeContract(approveConfig!.request);
+                await new Promise(r => setTimeout(r, 1500));
+                writeContract(transferConfig!.request);
                 await new Promise(r => setTimeout(r, 1500));
                 swap({
                     address: poolMXNeUSDCAddress as `0x${string}`,
@@ -308,7 +317,40 @@ export default function PayPage() {
                         parseUnits((payload ? +payload?.amount! : 0).toFixed(6), 6), // amount1Out = tMXNe
                         address!                           // recipient
                     ],
+                });*/
+
+                console.log('swapping quote:', parseUnits(quote, 6), ' tokenOut:', parseUnits((payload ? +payload?.amount! : 0).toFixed(6), 6));
+
+                //writeContract(transferConfig!.request);
+                //await new Promise(r => setTimeout(r, 1500));
+                writeContract(swapConfig!.request);
+
+                /*const hashSwap = await writeContractsAsync({
+                    contracts: [
+                       
+                        {
+                            address: USDTokenAddress! as `0x${string}`,
+                            abi: usdcAbi,
+                            functionName: 'transfer',
+                            args: [poolMXNeUSDCAddress! as `0x${string}`, +quote * 1000000 ],
+                        },
+                        {
+                            address: poolMXNeUSDCAddress! as `0x${string}`,
+                            abi: poolAbi,
+                            functionName: 'swap',
+                            args: [
+                                parseUnits("0", 6),                                 // amount0Out = tMXNe amount is output1?
+                                parseUnits((payload ? +payload?.amount! : 0).toFixed(6), 6), // amount1Out = tMXNe
+                                address!                           // recipient
+                            ],
+                        }
+                    ],
                 });
+                console.log("onSwap localToken total", hashSwap);
+                setTxHash(hashSwap.id);*/
+
+                let balanceInMerchantsToken = balanceInMerchantsTokenData.data?.formatted;
+                console.log("balanceInMerchantsToken", balanceInMerchantsToken);
 
                 /*
                 // 2) Wait a few seconds or for the approval tx

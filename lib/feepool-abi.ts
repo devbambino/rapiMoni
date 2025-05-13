@@ -1,0 +1,1 @@
+export const feeAbi = [] as const;
