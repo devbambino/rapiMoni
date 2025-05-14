@@ -10,120 +10,192 @@ interface IERC20Decimals is IERC20 {
 }
 
 interface ILiquidityPool {
-    function deposit(uint256) external;
-    function withdraw(uint256) external;
+    function totalWithdrawalRequested() external view returns (uint256);
+    function liquidityBalance() external view returns (uint256);
+    function collect(address user, uint256 paymentAmount) external;
+    function seizeCollateral( address user, uint256 paymentAmount, uint256 seizedInAsset) external;
+    function disburse(address user, address merchant, uint256 principalAmount, uint256 fee) external;
 }
 
 interface IFeePool {
     function collectFee(uint256) external;
+    function accrueFee(uint256) external;
 }
 
 contract MicroloanManager is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20Decimals;
 
+    /*enum LoanTermUnit {
+        60,//1 min
+        3600,// 1 hour
+        86400,// 1 day
+        2628000,// 1 month
+    }*/
+
     IERC20Decimals public immutable usdc;
-    IERC20Decimals public immutable asset;  // MXNe or BRZ
-    ILiquidityPool public immutable lenderPool;
+    ILiquidityPool public immutable liquidityPool;
     IFeePool public immutable feePool;
+    uint256 public loanTermUnit = 2628000;// in secs, by default 1 month 
+    uint256 public totalCollateral;
+    mapping(address => uint256) public collateral;
 
     struct Loan {
         uint256 collateral;    // USDC locked
         uint256 principal;     // asset lent
+        uint256 fee;     // total fee
         uint256 startTime;
         uint256 term;          // in seconds
+        uint256 termInPeriods;          // 1 to 6
+        uint256 pendingPayments;          // 6 to 0, in periods
         uint256 paid;          // amount repaid
+        uint256 liquidated; // # of liquidations
         bool    active;
     }
 
     mapping(address => Loan) public loans;
-    uint256 public feeRatePerSecond; // merchant paid fee rate
 
-    event LoanOpened(address indexed user, uint256 collateral, uint256 principal, uint256 term);
-    event Repaid(address indexed user, uint256 amount);
-    event Liquidated(address indexed user);
+    event LoanOpened(address indexed user, uint256 collateral, uint256 principal, uint256 termInPeriods);
+    event Repaid(address indexed user, uint256 amount, uint256 pendingPayments);
+    event Liquidated(address indexed user, uint256 seizedCollateral, uint256 returnedCollateral);
+    event CollateralWithdrawed(address indexed user, uint256 collateralAmount);
 
     constructor(
         address _usdc,
-        address _asset,
-        address _lenderPool,
+        address _liquidityPool,
         address _feePool,
-        uint256 _feeRatePerSecond
+        uint256 _loanTermUnit
     ) {
         usdc = IERC20Decimals(_usdc);
-        asset = IERC20Decimals(_asset);
-        lenderPool = ILiquidityPool(_lenderPool);
+        liquidityPool = ILiquidityPool(_liquidityPool);
         feePool = IFeePool(_feePool);
-        feeRatePerSecond = _feeRatePerSecond;
+        loanTermUnit = _loanTermUnit;//in secs
+    }
+
+    function changeTermUnit(uint256 _loanTermUnit) public onlyOwner {
+        loanTermUnit = _loanTermUnit;//in secs
     }
 
     /// @notice Open a single loan per user
-    function openLoan(uint256 collateralAmount, uint256 termInSeconds) external nonReentrant {
+    function openLoan(uint256 collateralAmount, uint256 productPrice, uint256 termInPeriods, address merchant) external nonReentrant {
         Loan storage loan = loans[msg.sender];
-        require(!loan.active, "Existing loan");
-        require(collateralAmount > 0 && termInSeconds > 0, "Invalid params");
+        require(!loan.active, "User has existing loan");
+        require(usdc.balanceOf(msg.sender) >= collateralAmount, "User has not enough collateral");
+        require(collateralAmount > 0 && termInPeriods > 0, "Invalid params");
+        //uint256 _totalAssets = liquidityPool.liquidityBalance();
+        require(liquidityPool.liquidityBalance() >= liquidityPool.totalWithdrawalRequested() + productPrice, "Not enough liquidity in the lending pool");
 
-        uint256 collateralNeeded = collateralAmount;
-        usdc.safeTransferFrom(msg.sender, address(this), collateralNeeded);
-        // compute principal: asset amount based on price feed, omitted here
-        uint256 principal = collateralAmount; // assume 1:1 for simplicity
+        // transfer collateral from user to this SC
+        //PENDING APPROVAL_FRONTEND
+        usdc.safeTransferFrom(msg.sender, address(this), collateralAmount);
+        collateral[msg.sender] += collateralAmount;
+        totalCollateral += collateralAmount;
 
-        loan.collateral = collateralNeeded;
-        loan.principal = principal;
+        uint256 fee = productPrice * termInPeriods / 100;
+
+        //Disburse and transfer principal: Pay the merchant directly, minus fee, and move fee to FeePool
+        liquidityPool.disburse(msg.sender, merchant, productPrice, fee);
+        feePool.collectFee(fee);
+
+        //Loan terms
+        loan.collateral = collateralAmount;
+        loan.principal = productPrice;
         loan.startTime = block.timestamp;
-        loan.term = termInSeconds;
+        loan.term = termInPeriods * loanTermUnit;// in seconds
+        loan.termInPeriods = termInPeriods;
+        loan.fee = fee;
+        loan.pendingPayments = termInPeriods;
         loan.active = true;
         loan.paid = 0;
 
-        // deposit to lender pool
-        asset.safeApprove(address(lenderPool), principal);
-        lenderPool.deposit(principal);
-
-        // disburse principal
-        asset.safeTransfer(msg.sender, principal);
-        emit LoanOpened(msg.sender, collateralNeeded, principal, termInSeconds);
+        emit LoanOpened(msg.sender, collateralAmount, productPrice, termInPeriods);
     }
 
     /// @notice Repay a portion or full loan
     function repay(uint256 paymentAmount) external nonReentrant {
         Loan storage loan = loans[msg.sender];
         require(loan.active, "No active loan");
+        require(paymentAmount >= ((loan.principal - loan.paid) / loan.pendingPayments), "Minimun payment is higher");
 
-        // accrue fee to fee pool
-        uint256 elapsed = block.timestamp - loan.startTime;
-        uint256 fee = elapsed * feeRatePerSecond;
-        feePool.collectFee(fee);
+        // accrue fee to be claimable
+        feePool.accrueFee(loan.fee * paymentAmount / loan.principal);
 
-        // apply payment
-        usdc.safeTransferFrom(msg.sender, address(this), paymentAmount);
+        // apply payment and return assets to LiquidityPool
+        liquidityPool.collect(msg.sender, paymentAmount);
         loan.paid += paymentAmount;
+        loan.pendingPayments -= 1;
 
         // if fully repaid
-        if (loan.paid >= loan.collateral) {
+        if (loan.paid >= loan.principal) {
             // return collateral
             usdc.safeTransfer(msg.sender, loan.collateral);
+            collateral[msg.sender] = 0;
+            totalCollateral -= loan.collateral;
             loan.active = false;
+            loan.pendingPayments = 0;
         }
-        emit Repaid(msg.sender, paymentAmount);
+        emit Repaid(msg.sender, paymentAmount, loan.pendingPayments);
     }
 
-    /// @notice Liquidate overdue loans
-    function liquidate(address user) external onlyOwner nonReentrant {
+    /// @notice Liquidate overdue loans, usdInAsset is 1 usd coverted to the asset currency x 1000
+    function liquidate(address user, uint256 usdInAsset) external onlyOwner nonReentrant {
         Loan storage loan = loans[user];
         require(loan.active, "No active loan");
         require(block.timestamp > loan.startTime + loan.term, "Not overdue");
 
         // seize collateral
-        uint256 seized = loan.collateral;
+        uint256 seizedInAsset = loan.principal - loan.paid;
+        uint256 seized = seizedInAsset /(usdInAsset/1000);//in usd
+        // accrue fee to be claimable
+        feePool.accrueFee(loan.fee * seizedInAsset / loan.principal);
+        // transfer collateral to liquidity pool
+        usdc.safeTransfer(address(liquidityPool), seized);
+        collateral[user] -= seized;
+        totalCollateral -= seized;
+        liquidityPool.seizeCollateral(user, seized, seizedInAsset);
+        
+        // return collateral
+        uint256 toBeReturned = loan.collateral - seized;
+        if(toBeReturned > 0){
+            usdc.safeTransfer(user, toBeReturned);
+            collateral[user] -= toBeReturned;
+            totalCollateral -= toBeReturned;
+        }
         loan.active = false;
+        loan.pendingPayments = 0;
+        loan.liquidated += 1;
 
-        // optionally swap collateral to asset for lender pool
-        // omitted for brevity
-
-        emit Liquidated(user);
+        emit Liquidated(user, seized, toBeReturned);
     }
 
-    /// @notice Adjust the merchant fee rate
-    function setFeeRate(uint256 newRate) external onlyOwner {
-        feeRatePerSecond = newRate;
+    function withdrawCollateral() external nonReentrant {
+        Loan storage loan = loans[msg.sender];
+        require(!loan.active, "Active loan");
+        uint256 collateralAmount = collateral[msg.sender];
+        require(collateralAmount > 0, "User has no collateral deposited");
+
+        usdc.safeTransfer(msg.sender, collateralAmount);
+        collateral[msg.sender] = 0;
+        totalCollateral -= collateralAmount;
+        emit CollateralWithdrawed(msg.sender, collateralAmount);
+    }
+
+    function getCurrentTimestamp() external view returns (uint256) {
+        return block.timestamp;
+    }
+
+    function debtBalance(address user) external view returns (uint256) {
+        Loan storage loan = loans[user];
+        if (!loan.active) return 0;
+        return loan.principal - loan.paid;
+    }
+
+    function debtBalanceDue(address user) external view returns (uint256) {
+        Loan storage loan = loans[user];
+        require(loan.active, "No active loan");
+        require(block.timestamp > loan.startTime + loan.term, "Not overdue");
+        return loan.principal - loan.paid;
+    }
+    function collateralBalance() external view returns (uint256) {
+        return usdc.balanceOf(address(this));
     }
 }
