@@ -1,4 +1,4 @@
-export const feeAbi = [
+export const feePoolAbi = [
 	{
 		"inputs": [
 			{

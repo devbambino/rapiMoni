@@ -13,9 +13,9 @@ import { parseUnits, formatUnits } from 'viem';
 const rate = Number(process.env.NEXT_PUBLIC_RAPIMONI_FEE); // Fee rate charged per payment
 const rapiMoniAddress = process.env.NEXT_PUBLIC_RAPIMONI_WALLET; // wallet address for collecting fees
 
-const USDTokenAddress = process.env.NEXT_PUBLIC_USD_ADDRESS; // Testnet
-const MXNTokenAddress = process.env.NEXT_PUBLIC_MXN_ADDRESS; // Testnet
-const BRZTokenAddress = process.env.NEXT_PUBLIC_BRZ_ADDRESS; // Testnet
+const USD_ADDR = process.env.NEXT_PUBLIC_USD_ADDRESS; // Testnet
+const MXN_ADDR = process.env.NEXT_PUBLIC_MXN_ADDRESS; // Testnet
+const BRZ_ADDR = process.env.NEXT_PUBLIC_BRZ_ADDRESS; // Testnet
 const mockMerchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS; // Testnet
 const poolMXNeUSDCAddress = process.env.NEXT_PUBLIC_POOL_MXN_USD; // Testnet
 
@@ -43,9 +43,9 @@ export default function PayPage() {
     // Helper to resolve token address
     const getTokenAddress = (token: string) => {
         switch (token) {
-            case "brl": return BRZTokenAddress!;
-            case "mxn": return MXNTokenAddress!;
-            default: return USDTokenAddress!;
+            case "brl": return BRZ_ADDR!;
+            case "mxn": return MXN_ADDR!;
+            default: return USD_ADDR!;
         }
     };
 
@@ -58,7 +58,7 @@ export default function PayPage() {
 
     const balanceInUSDData = useBalance({
         address,
-        token: USDTokenAddress as `0x${string}` | undefined,
+        token: USD_ADDR! as `0x${string}` | undefined,
     });
 
     const {
@@ -81,13 +81,13 @@ export default function PayPage() {
     }, [reservesData]);
 
     const { data: approveConfig } = useSimulateContract({
-        address: USDTokenAddress! as `0x${string}`,
+        address: USD_ADDR! as `0x${string}`,
         abi: usdcAbi,
         functionName: 'approve',
         args: [poolMXNeUSDCAddress! as `0x${string}`, parseUnits(quote, 6)],
     });
     const { data: transferConfig } = useSimulateContract({
-        address: USDTokenAddress! as `0x${string}`,
+        address: USD_ADDR! as `0x${string}`,
         abi: usdcAbi,
         functionName: 'transfer',
         args: [poolMXNeUSDCAddress! as `0x${string}`, parseUnits(quote, 6)],
@@ -323,7 +323,7 @@ export default function PayPage() {
 
                 //writeContract(transferConfig!.request);
                 //await new Promise(r => setTimeout(r, 1500));
-                writeContract(swapConfig!.request);
+                //writeContract(swapConfig!.request);
 
                 /*const hashSwap = await writeContractsAsync({
                     contracts: [
