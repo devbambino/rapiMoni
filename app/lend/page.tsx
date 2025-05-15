@@ -1,11 +1,10 @@
 "use client"
 import { useState, useEffect } from "react";
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
-import { useWriteContracts } from 'wagmi/experimental';
-import { usdcAbi } from "@/lib/usdc-abi";
 import { liquidityPoolAbi } from "@/lib/liquiditypool-abi";
 import { microloanAbi } from "@/lib/microloan-abi";
 import { feePoolAbi } from "@/lib/feepool-abi";
+import { usdcAbi } from "@/lib/usdc-abi";
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +16,15 @@ const MA_ADDR = process.env.NEXT_PUBLIC_MANAGER_ADDRESS!;
 const MXN_ADDR = process.env.NEXT_PUBLIC_MXN_ADDRESS!;
 const USD_ADDR = process.env.NEXT_PUBLIC_USD_ADDRESS!;
 
+const estimatedAPY = 12 * 0.9;
+
 export default function LendPage() {
     const { address } = useAccount();
-    const { data: hash, isPending, writeContractAsync } = useWriteContract();
-    //const { data: hash, error, isPending, writeContractsAsync } = useWriteContracts();
     const [depositAmt, setDepositAmt] = useState("");
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    //const [alertMsj, setAlertMsj] = useState("");
+    //const [isLoading, setIsLoading] = useState<boolean>(false);
+    const estimatedAPY = 12 * 0.9;
+    const [userEstimatedAPY, setUserEstimatedAPY] = useState("");
+    const [userPendingClaims, setUserPendingClaims] = useState("");
 
     const { data: userBalanceInMXNData, refetch: getUserBalanceMXN } = useBalance({
         address,
@@ -35,7 +36,7 @@ export default function LendPage() {
     });
     const { data: poolBalanceInUSDData, refetch: getPoolBalanceUSD } = useBalance({
         address: LP_ADDR as `0x${string}`,
-        token: MXN_ADDR as `0x${string}` | undefined,
+        token: USD_ADDR as `0x${string}` | undefined,
     });
 
     // Fetch pools info
@@ -48,10 +49,9 @@ export default function LendPage() {
     const { data: userShares, refetch: getUserShares } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'shares', args: [address!] });
     const { data: userBalanceTimestamp, refetch: getUserBalanceTimestamp } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'balancesTimestamp', args: [address!] });
     const { data: userClaimed, refetch: getUserClaimed } = useReadContract({ address: FP_ADDR as `0x${string}`, abi: feePoolAbi, functionName: 'claimed', args: [address!] });
-    
+
     const { data: approveDepositHash, error: approveDepositError, writeContractAsync: approveDeposit, isPending: approveDepositIsPending } = useWriteContract();
     const { isLoading: approveDepositConfirming, isSuccess: approveDepositConfirmed } = useWaitForTransactionReceipt({ hash: approveDepositHash });
-
     const { data: depositHash, error: depositError, writeContractAsync: deposit, isPending: depositIsPending } = useWriteContract();
     const { isLoading: depositConfirming, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: depositHash });
 
@@ -70,9 +70,24 @@ export default function LendPage() {
         }
     }, [depositConfirmed, claimConfirmed, withdrawConfirmed, address]);
 
+    const estimateClaims = () => {
+        getTotalShares();
+        getUserShares();
+        getClaimableFees();
+        getUserClaimed();
+        console.log("claimableFees:", claimableFees, " totalShares:", totalShares, " userShares:", userShares, " userClaimed:", userClaimed);
+
+        //const estimatedUserTotalClaimable = (claimableFees! * userShares!) / totalShares!;
+        //const estimatedUserAPY = formatUnits((claimableFees!  / totalShares!), 6);    
+        //const pendingClaims = formatUnits(estimatedUserTotalClaimable - userClaimed!, 6);
+        setUserPendingClaims(formatUnits(((claimableFees! * userShares!) / totalShares!) - userClaimed!, 6));
+        setUserEstimatedAPY(formatUnits((claimableFees!  / totalShares!), 6));
+
+    };
+
     const onDeposit = async () => {
         if (!depositAmt || !address) return;
-        setIsLoading(true);
+        //setIsLoading(true);
         try {
             getUserShares();
             getUserBalanceMXN();
@@ -83,16 +98,12 @@ export default function LendPage() {
                 toast.warning("You don't have enough MXNe to deposit.");
                 console.log("onDeposit You don't have enough MXNe to deposit.");
                 return;
-            } else {
-                console.log("onDeposit You have enough MXNe to deposit.", "success");
             }
 
             if (userShares! > 0) {
                 toast.warning("You have already deposited funds, for adding more please withdraw all first.");
                 console.log("onDeposit You have already deposited funds, for adding more please withdraw all first.");
                 return;
-            } else {
-                console.log("onDeposit You can deposit funds.", "success");
             }
 
             /*const depositId = await writeContractsAsync({
@@ -148,13 +159,13 @@ export default function LendPage() {
                 toast.error("An error occurred while processing the deposit. Please try again later.");
             }
         } finally {
-            setIsLoading(false);
+            //setIsLoading(false);
         }
     };
 
     const onClaim = async () => {
         if (!address) return;
-        setIsLoading(true);
+        //setIsLoading(true);
         try {
             //require(block.timestamp - userBalanceTimestamp > claimTerm, "Claims are not allowed yet");
             getUserBalanceTimestamp();
@@ -173,12 +184,12 @@ export default function LendPage() {
             getClaimableFees();
             getUserClaimed();
             console.log("claimableFees:", claimableFees, " userShares:", userShares, " userClaimed:", userClaimed);
-            if ( (claimableFees! * userShares!) / totalShares! <= userClaimed!) {
+            if ((claimableFees! * userShares!) / totalShares! <= userClaimed!) {
                 toast.error("Nothing to claim");
                 console.error("Nothing to claim");
                 return;
             }
-            
+
             await claim({
                 address: FP_ADDR as `0x${string}`,
                 abi: feePoolAbi,
@@ -201,13 +212,13 @@ export default function LendPage() {
                 toast.error("An error occurred while processing the deposit. Please try again later.");
             }
         } finally {
-            setIsLoading(false);
+            //setIsLoading(false);
         }
     };
 
     const onWithdraw = async () => {
         if (!address) return;
-        setIsLoading(true);
+        //setIsLoading(true);
         try {
             getUserBalanceTimestamp();
             getCurrentTimestamp();
@@ -240,7 +251,7 @@ export default function LendPage() {
                 toast.error("An error occurred while processing the deposit. Please try again later.");
             }
         } finally {
-            setIsLoading(false);
+            //setIsLoading(false);
         }
     };
 
@@ -260,12 +271,12 @@ export default function LendPage() {
                         {/* Stepper UI */}
                         <h2 className="text-2xl font-semibold mb-2">Lending Pool</h2>
                         <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
-                        <span className="text-xl text-[#50e2c3]">Total Deposited</span>
-                        <p className="">{`${Number(totalShares ?? 0) / 1e6} MXNe`}</p>
-                        <span className="text-xl text-[#50e2c3]">Your Share</span>
-                        <p className="">{`${Number(userShares ?? 0) / 1e6} MXNe`}</p>
-                        <span className="text-xl text-[#50e2c3]">APY</span>
-                        <p className="">~4.5%</p>
+                        <span className="text-[#50e2c3]">Total Deposited</span>
+                        <p className="text-xl">{`${Number(totalShares ?? 0) / 1e6} MXNe`}</p>
+                        <span className="text-[#50e2c3]">Your Share</span>
+                        <p className="text-xl">{`${Number(userShares ?? 0) / 1e6} MXNe`}</p>
+                        <span className="text-[#50e2c3]">APY</span>
+                        <p className="text-xl">~{estimatedAPY}%</p>
                         {userShares! > 0 && (
                             <>
                                 <Button onClick={onWithdraw} disabled={withdrawIsPending} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{withdrawIsPending ? "Withdrawing…" : "Withdraw"}</Button>
@@ -285,8 +296,8 @@ export default function LendPage() {
                         )}
                         <h2 className="text-2xl font-semibold mb-2">Deposit MXNe</h2>
                         <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
-                        <span className="text-xl text-[#50e2c3]">You have</span>
-                        <p className="">{userBalanceInMXNData?.formatted} MXNe</p>
+                        <span className="text-[#50e2c3]">You have</span>
+                        <p className="text-xl">{userBalanceInMXNData?.formatted} MXNe</p>
                         <Input
                             type="number"
                             placeholder="Amount in MXNe"
@@ -309,6 +320,10 @@ export default function LendPage() {
                             )}
                             <h2 className="text-2xl font-semibold mb-2">Claim Rewards</h2>
                             <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                            <span className="text-[#50e2c3]">Claimable</span>
+                            <p className="text-xl">{userPendingClaims? userPendingClaims : 0} MXNe</p>
+                            <span className="text-[#50e2c3]">Your APY</span>
+                            <p className="text-xl">{userEstimatedAPY? userEstimatedAPY : 0}%</p>
                             <Button onClick={onClaim} disabled={claimIsPending} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{claimIsPending ? "Claiming…" : "Claim"}</Button>
                         </div>
                     )}
@@ -316,7 +331,7 @@ export default function LendPage() {
             ) : (
                 <div className="mt-8">
                     <p className="text-lg text-gray-500">
-                        Please connect your wallet to scan the QR code and pay.
+                        Please connect your wallet to make deposits and claim rewards.
                     </p>
                 </div>
             )}

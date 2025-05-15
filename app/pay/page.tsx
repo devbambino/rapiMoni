@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Button } from "@/components/ui/button";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useReadContract, useSimulateContract } from "wagmi";
-import { useToast } from "@/components/ui/toastprovider";
+import { toast } from "sonner";
 import { usdcAbi } from "@/lib/usdc-abi";
 import { poolAbi } from "@/lib/simplepool-abi";
 import { useWriteContracts } from 'wagmi/experimental';
@@ -29,6 +29,8 @@ export default function PayPage() {
         amount: string;
         token: string;
         allowFallback: boolean;
+        enableBNPL: boolean;
+        loanTerm: string;
     } | null>(null);
     const [step, setStep] = useState<"init" | "scan" | "decide" | "confirm" | "done">("init");
     const [quote, setQuote] = useState<string>("");
@@ -38,7 +40,6 @@ export default function PayPage() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isSwapRequired, setIsSwapRequired] = useState<boolean>(false);
     const [waitingTime, setWaitingTime] = useState<number>(1500);//2 seconds
-    const { showToast } = useToast();
 
     // Helper to resolve token address
     const getTokenAddress = (token: string) => {
@@ -51,14 +52,13 @@ export default function PayPage() {
 
     const merchantTokenAddress = payload ? getTokenAddress(payload.token) : undefined;
 
-    const balanceInMerchantsTokenData = useBalance({
+    const { data: userBalanceInMerchantsTokenData, refetch: getUserBalanceMerchantsToken } = useBalance({
         address,
         token: merchantTokenAddress as `0x${string}` | undefined,
     });
-
-    const balanceInUSDData = useBalance({
+    const { data: userBalanceInUSDData, refetch: getUserBalanceUSD } = useBalance({
         address,
-        token: USD_ADDR! as `0x${string}` | undefined,
+        token: USD_ADDR as `0x${string}` | undefined,
     });
 
     const {
@@ -79,6 +79,24 @@ export default function PayPage() {
             setReservesMXN(r1);
         }
     }, [reservesData]);
+
+    // Load payload from URL if present
+    useEffect(() => {
+        if (typeof window !== "undefined" && !payload) {
+            const params = new URLSearchParams(window.location.search);
+            const data = params.get("data");
+            if (data) {
+                try {
+                    const parsed = JSON.parse(decodeURIComponent(data));
+                    setPayload(parsed);
+                    setStep("decide");
+                } catch (e) {
+                    // If invalid, stay on scan/init
+                    setPayload(null);
+                }
+            }
+        }
+    }, []);
 
     const { data: approveConfig } = useSimulateContract({
         address: USD_ADDR! as `0x${string}`,
@@ -114,7 +132,7 @@ export default function PayPage() {
                     setPayload(JSON.parse(code));
                     setStep("decide");
                 } catch (e) {
-                    showToast("Invalid QR", "error");
+                    toast.error("Invalid QR");
                     setStep("scan");
                 }
             }
@@ -131,7 +149,7 @@ export default function PayPage() {
         const tokenAddress = getTokenAddress(token);
         try {
             // 1) Direct pay in same token
-            let balanceInMerchantsToken = balanceInMerchantsTokenData.data?.formatted;
+            let balanceInMerchantsToken = userBalanceInMerchantsTokenData?.formatted;
             console.log("balanceInMerchantsToken", balanceInMerchantsToken);
             if (+balanceInMerchantsToken! >= +amount) {
                 //Payment to the merchant
@@ -203,15 +221,15 @@ export default function PayPage() {
                 setTxHash(hashFee);*/
 
                 setStep("done");
-                showToast("Payment done!", "success");
+                toast.success("Payment done!");
                 return;
             }
 
             // 2) Paying with USD
-            let balanceInFallbackToken = balanceInUSDData.data?.formatted;
+            let balanceInFallbackToken = userBalanceInMerchantsTokenData?.formatted;
             console.log("balanceInFallbackToken", balanceInFallbackToken);
             if (+balanceInFallbackToken! < 0) {
-                showToast(`Insufficient balance, please add ${token.toUpperCase()} or USD to your wallet and try again later.`, "error");
+                toast.error(`Insufficient balance, please add ${token.toUpperCase()} or USD to your wallet and try again later.`);
                 return;
             }
 
@@ -255,10 +273,10 @@ export default function PayPage() {
                     setIsSwapRequired(true);
                 }
                 setStep("confirm");
-                showToast(`Not enough ${token.toUpperCase()} in your wallet. We will use USD instead.`, "info");
+                toast.info(`Not enough ${token.toUpperCase()} in your wallet. We will use USD instead.`);
                 return;
             } else {
-                showToast(`Insufficient balance, please add ${token.toUpperCase()} or USD to you wallet and try again later.`, "error");
+                toast.error(`Insufficient balance, please add ${token.toUpperCase()} or USD to you wallet and try again later.`);
                 return;
             }
         } catch (err: any) {
@@ -271,17 +289,15 @@ export default function PayPage() {
 
             if (errorStr.includes("no valid median")) {
                 //Trading temporarily paused.  Unable to determine accurately X to USDC exchange rate now. Please try again later.
-                showToast(
-                    `The oracle for the ${token.toUpperCase()}/USD pair is temporarily not working. Please try again later or use another currency.`,
-                    "error"
+                toast.error(
+                    `The oracle for the ${token.toUpperCase()}/USD pair is temporarily not working. Please try again later or use another currency.`
                 );
             } else if (errorStr.includes("cancelled transaction")) {
-                showToast(
-                    `You rejected the request, please try again when you are ready to make the payment.`,
-                    "error"
+                toast.error(
+                    `You rejected the request, please try again when you are ready to make the payment.`
                 );
             } else {
-                showToast("An error occurred while processing the payment. Please try again later.", "error");
+                toast.error("An error occurred while processing the payment. Please try again later.");
             }
 
             if (payload) { setStep("decide"); } else { setStep("scan"); }
@@ -300,7 +316,7 @@ export default function PayPage() {
         try {
             if (isSwapRequired) {
                 // 3) Swap USD to  merchant currency
-                let currentBalance = balanceInUSDData.data?.formatted;
+                let currentBalance = userBalanceInUSDData?.formatted;
                 console.log("currentBalance", currentBalance);
                 console.log('reserves usd:', reservesUSD, ' mxn:', reservesMXN);
 
@@ -349,7 +365,7 @@ export default function PayPage() {
                 console.log("onSwap localToken total", hashSwap);
                 setTxHash(hashSwap.id);*/
 
-                let balanceInMerchantsToken = balanceInMerchantsTokenData.data?.formatted;
+                let balanceInMerchantsToken = userBalanceInMerchantsTokenData?.formatted;
                 console.log("balanceInMerchantsToken", balanceInMerchantsToken);
 
                 /*
@@ -379,7 +395,7 @@ export default function PayPage() {
                 console.log("onSwap localToken total", hashSwap);*/
 
                 setStep("done");
-                showToast("Payment done!", "success");
+                toast.success("Payment done!");
 
                 //showToast(`Insufficient balance in ${token.toUpperCase()}, please add more USD and try again later.`, "error");
 
@@ -404,7 +420,7 @@ export default function PayPage() {
                 setTxHash(hashFee);
 */
                 setStep("done");
-                showToast("Payment done!", "success");
+                toast.success("Payment done!");
             }
 
         } catch (err: any) {
@@ -416,35 +432,18 @@ export default function PayPage() {
                     : err?.message || err?.reason || JSON.stringify(err);
             if (errorStr.includes("no valid median")) {
                 //Trading temporarily paused.  Unable to determine accurately X to USDC exchange rate now. Please try again later.
-                showToast(
-                    `The oracle for the ${token.toUpperCase()}/USD pair is temporarily not working . Please try again later or use another currency.`,
-                    "error"
+                toast.error(
+                    `The oracle for the ${token.toUpperCase()}/USD pair is temporarily not working . Please try again later or use another currency.`
                 );
             } else {
-                showToast("An error occurred while processing the payment. Please try again later.", "error");
+                toast.error("An error occurred while processing the payment. Please try again later.");
             }
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Load payload from URL if present
-    useEffect(() => {
-        if (typeof window !== "undefined" && !payload) {
-            const params = new URLSearchParams(window.location.search);
-            const data = params.get("data");
-            if (data) {
-                try {
-                    const parsed = JSON.parse(decodeURIComponent(data));
-                    setPayload(parsed);
-                    setStep("decide");
-                } catch (e) {
-                    // If invalid, stay on scan/init
-                    setPayload(null);
-                }
-            }
-        }
-    }, []);
+    
 
     return (
         <div className="min-h-screen text-white flex flex-col items-center px-4 py-12">
@@ -481,7 +480,11 @@ export default function PayPage() {
                         {step === "decide" && payload && (
                             <>
                                 <p>
-                                    You’ll pay <strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong> {payload?.description ? (<>for {payload?.description}</>) : ("")}
+                                    You'll pay <strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong> {payload?.description ? (<>for {payload?.description}</>) : ("")} using the balance in your wallet()
+                                </p>
+                                <Button onClick={onPay} disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{`Pay ${payload.amount} ${payload.token.toLocaleUpperCase()}`}</Button>
+                                <p>
+                                    You'll pay <strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong> {payload?.description ? (<>for {payload?.description}</>) : ("")}
                                 </p>
                                 <Button onClick={onPay} disabled={isLoading} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{`Pay ${payload.amount} ${payload.token.toLocaleUpperCase()}`}</Button>
                             </>
@@ -489,7 +492,7 @@ export default function PayPage() {
                         {step === "confirm" && (
                             <>
                                 <p>
-                                    You’ll pay <strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong> using <strong>{quote} USD</strong> from your wallet.
+                                    You'll pay <strong>{payload?.amount} {payload?.token.toLocaleUpperCase()}</strong> using <strong>{quote} USD</strong> from your wallet.
                                     {quote && (
                                         <>
                                             <br /><span className="text-xs text-[#50e2c3]">(Rate: 1 USD ≈ {(Number(payload?.amount) / Number(quote)).toFixed(2)} {payload?.token.toLocaleUpperCase()})</span>
