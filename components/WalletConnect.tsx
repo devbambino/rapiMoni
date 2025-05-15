@@ -2,7 +2,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Wallet, Copy, AlertCircle } from "lucide-react";
-import { cbWalletConnector } from "@/wagmi";
+import { cbWalletConnector, wcWalletConnector } from "@/wagmi";
 import { toast } from "sonner";
 
 export const WalletConnect = () => {
@@ -57,7 +57,7 @@ export const WalletConnect = () => {
         ) : (
           <div className="flex gap-2">
             <Button
-              onClick={() => connect({ connector: cbWalletConnector })}
+              onClick={() => connect({ connector: wcWalletConnector })}
               variant="gradient"
               size="sm"
               className="flex items-center gap-1.5 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full"

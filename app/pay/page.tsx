@@ -7,7 +7,7 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance,
 import { useToast } from "@/components/ui/toastprovider";
 import { usdcAbi } from "@/lib/usdc-abi";
 import { poolAbi } from "@/lib/simplepool-abi";
-import { useWriteContracts } from 'wagmi/experimental'
+import { useWriteContracts } from 'wagmi/experimental';
 import { parseUnits, formatUnits } from 'viem';
 
 const rate = Number(process.env.NEXT_PUBLIC_RAPIMONI_FEE); // Fee rate charged per payment

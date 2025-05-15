@@ -1,111 +1,141 @@
 "use client"
 import { useState, useEffect } from "react";
-import { useAccount, useSimulateContract, useWriteContract, useReadContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
+import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
+import { useWriteContracts } from 'wagmi/experimental';
 import { usdcAbi } from "@/lib/usdc-abi";
 import { liquidityPoolAbi } from "@/lib/liquiditypool-abi";
+import { microloanAbi } from "@/lib/microloan-abi";
 import { feePoolAbi } from "@/lib/feepool-abi";
 import { parseUnits, formatUnits } from 'viem';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/components/ui/toastprovider";
-import { AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const LP_ADDR = process.env.NEXT_PUBLIC_LIQUIDITY_POOL_ADDRESS!;
 const FP_ADDR = process.env.NEXT_PUBLIC_FEE_POOL_ADDRESS!;
+const MA_ADDR = process.env.NEXT_PUBLIC_MANAGER_ADDRESS!;
 const MXN_ADDR = process.env.NEXT_PUBLIC_MXN_ADDRESS!;
 const USD_ADDR = process.env.NEXT_PUBLIC_USD_ADDRESS!;
 
 export default function LendPage() {
     const { address } = useAccount();
     const { data: hash, isPending, writeContractAsync } = useWriteContract();
+    //const { data: hash, error, isPending, writeContractsAsync } = useWriteContracts();
     const [depositAmt, setDepositAmt] = useState("");
-    const [alertMsj, setAlertMsj] = useState("");
-    const { showToast } = useToast();
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    //const [alertMsj, setAlertMsj] = useState("");
 
-    const userBalanceInMXNData = useBalance({
+    const { data: userBalanceInMXNData, refetch: getUserBalanceMXN } = useBalance({
         address,
         token: MXN_ADDR as `0x${string}` | undefined,
     });
-    const poolBalanceInMXNData = useBalance({
+    const { data: poolBalanceInMXNData, refetch: getPoolBalanceMXN } = useBalance({
         address: LP_ADDR as `0x${string}`,
         token: MXN_ADDR as `0x${string}` | undefined,
     });
-    const poolBalanceInUSDData = useBalance({
+    const { data: poolBalanceInUSDData, refetch: getPoolBalanceUSD } = useBalance({
         address: LP_ADDR as `0x${string}`,
         token: MXN_ADDR as `0x${string}` | undefined,
     });
 
-    // 1) Fetch totals & user shares
-    const { data: totalShares } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'totalShares' });
-    const { data: userShares } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'shares', args: [address!] });
-    const { data: userBalanceTimestamp } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'balancesTimestamp', args: [address!] });
+    // Fetch pools info
+    const { data: currentTimestamp, refetch: getCurrentTimestamp } = useReadContract({ address: MA_ADDR as `0x${string}`, abi: microloanAbi, functionName: 'getCurrentTimestamp' });
+    const { data: lockedInPeriod } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'lockedInPeriod' });
+    const { data: claimTerm } = useReadContract({ address: FP_ADDR as `0x${string}`, abi: feePoolAbi, functionName: 'claimTerm' });
+    const { data: claimableFees, refetch: getClaimableFees } = useReadContract({ address: FP_ADDR as `0x${string}`, abi: feePoolAbi, functionName: 'claimableFees' });
+    // Fetch user's info
+    const { data: totalShares, refetch: getTotalShares } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'totalShares' });
+    const { data: userShares, refetch: getUserShares } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'shares', args: [address!] });
+    const { data: userBalanceTimestamp, refetch: getUserBalanceTimestamp } = useReadContract({ address: LP_ADDR as `0x${string}`, abi: liquidityPoolAbi, functionName: 'balancesTimestamp', args: [address!] });
+    const { data: userClaimed, refetch: getUserClaimed } = useReadContract({ address: FP_ADDR as `0x${string}`, abi: feePoolAbi, functionName: 'claimed', args: [address!] });
+    
+    const { data: approveDepositHash, error: approveDepositError, writeContractAsync: approveDeposit, isPending: approveDepositIsPending } = useWriteContract();
+    const { isLoading: approveDepositConfirming, isSuccess: approveDepositConfirmed } = useWaitForTransactionReceipt({ hash: approveDepositHash });
 
-    // 2) Prepare deposit
-    const { data: depositConfig } = useSimulateContract({
-        address: LP_ADDR as `0x${string}`,
-        abi: liquidityPoolAbi,
-        functionName: 'deposit',
-        args: [parseUnits(depositAmt, 6)],
-    });
-    const { data: depositHash, writeContract: deposit, isPending: depositIsPending } = useWriteContract();
+    const { data: depositHash, error: depositError, writeContractAsync: deposit, isPending: depositIsPending } = useWriteContract();
     const { isLoading: depositConfirming, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: depositHash });
-    /*deposit({
-        address: LP_ADDR! as `0x${string}`,
-        abi: liquidityPoolAbi,
-        functionName: 'deposit',
-        args: [parseUnits(depositAmt, 6)],
-    });*/
 
-    // 3) Prepare claim
-    const { data: claimConfig } = useSimulateContract({
-        address: FP_ADDR as `0x${string}`,
-        abi: feePoolAbi,
-        functionName: 'claim'
-    });
-    const { data: claimHash, writeContract: claim, isPending: claimIsPending } = useWriteContract();
+    const { data: claimHash, error: claimError, writeContractAsync: claim, isPending: claimIsPending } = useWriteContract();
     const { isLoading: claimConfirming, isSuccess: claimConfirmed } = useWaitForTransactionReceipt({ hash: claimHash });
-    //const { write: claim, isLoading: claiming } = useWriteContract(claimConfig)
 
-    // 4) Withdraw funds
-    const { data: withdrawConfig } = useSimulateContract({
-        address: LP_ADDR as `0x${string}`,
-        abi: liquidityPoolAbi,
-        functionName: 'withdraw'
-    });
-    const { data: withdrawHash, writeContract: withdraw, isPending: withdrawIsPending } = useWriteContract();
+    const { data: withdrawHash, writeContractAsync: withdraw, isPending: withdrawIsPending } = useWriteContract();
     const { isLoading: withdrawConfirming, isSuccess: withdrawConfirmed } = useWaitForTransactionReceipt({ hash: withdrawHash });
+
+    useEffect(() => {
+        if (address) {
+            getTotalShares();
+            getUserShares();
+            getUserBalanceMXN();
+            console.log("onDeposit  depositHash:", depositHash, " depositConfirming:", depositConfirming, " depositConfirmed:", depositConfirmed);
+        }
+    }, [depositConfirmed, claimConfirmed, withdrawConfirmed, address]);
 
     const onDeposit = async () => {
         if (!depositAmt || !address) return;
-
+        setIsLoading(true);
         try {
-            let userBalanceInMXN = userBalanceInMXNData.data?.formatted;
-            console.log("userBalanceInMXN:", userBalanceInMXN!," depositAmt:",depositAmt!);
-            showToast("You don't have enough MXNe to deposit.", "error");
+            getUserShares();
+            getUserBalanceMXN();
+            let userBalanceInMXN = userBalanceInMXNData?.formatted;
+            console.log("onDeposit userBalanceInMXN:", userBalanceInMXN!, " depositAmt:", depositAmt!);
 
             if (+depositAmt > +userBalanceInMXN!) {
-                showToast("You don't have enough MXNe to deposit.", "error");
+                toast.warning("You don't have enough MXNe to deposit.");
+                console.log("onDeposit You don't have enough MXNe to deposit.");
                 return;
+            } else {
+                console.log("onDeposit You have enough MXNe to deposit.", "success");
             }
 
-            if (totalShares! > 0) {
-                showToast("You have already deposited funds, for adding more please withdraw all first.", "error");
+            if (userShares! > 0) {
+                toast.warning("You have already deposited funds, for adding more please withdraw all first.");
+                console.log("onDeposit You have already deposited funds, for adding more please withdraw all first.");
                 return;
+            } else {
+                console.log("onDeposit You can deposit funds.", "success");
             }
 
-            const hashApproval = await writeContractAsync({
+            /*const depositId = await writeContractsAsync({
+                contracts: [
+                    {
+                        abi: usdcAbi,// reuse usdcAbi as it has similar functions
+                        address: MXN_ADDR as `0x${string}`,
+                        functionName: 'approve',
+                        args: [LP_ADDR as `0x${string}`, parseUnits(depositAmt, 6)],
+                    },
+                    {
+                        address: LP_ADDR as `0x${string}`,
+                        abi: liquidityPoolAbi,
+                        functionName: 'deposit',
+                        args: [parseUnits(depositAmt, 6)],
+                    }
+                ],
+            });
+            console.log("onDeposit depositId:", depositId);
+            await new Promise(res => setTimeout(res, 1000));*/
+
+            await approveDeposit({
                 abi: usdcAbi,// reuse usdcAbi as it has similar functions
                 address: MXN_ADDR as `0x${string}`,
                 functionName: 'approve',
                 args: [LP_ADDR as `0x${string}`, parseUnits(depositAmt, 6)],
             });
-            console.log("onDeposit hashApproval:", hashApproval);
-            deposit(depositConfig!.request);
-            setAlertMsj("Congrats: Deposit done!");
+            console.log("onDeposit  hashApprove:", approveDepositHash);
+
+            await deposit({
+                address: LP_ADDR as `0x${string}`,
+                abi: liquidityPoolAbi,
+                functionName: 'deposit',
+                args: [parseUnits(depositAmt, 6)],
+            });
+            console.log("onDeposit  depositHash:", depositHash);
+
+            setDepositAmt("");
+
+            toast.success("Congrats: Deposit done!");
+
         } catch (err: any) {
-            setAlertMsj("");
-            console.error("Deposit Error onDeposit:", err);
+            console.error("onDeposit  Error onDeposit:", err);
             // Extract a string error message from the error object
             const errorStr =
                 typeof err === "string"
@@ -113,24 +143,51 @@ export default function LendPage() {
                     : err?.message || err?.reason || JSON.stringify(err);
 
             if (errorStr.includes("cancelled transaction")) {
-                showToast(
-                    `You rejected the request, please try again when you are ready to make the payment.`,
-                    "error"
-                );
+                toast.error("You rejected the request, please try again when you are ready to make the payment.");
             } else {
-                showToast("An error occurred while processing the deposit. Please try again later.", "error");
+                toast.error("An error occurred while processing the deposit. Please try again later.");
             }
         } finally {
+            setIsLoading(false);
         }
     };
 
     const onClaim = async () => {
         if (!address) return;
+        setIsLoading(true);
         try {
-            setAlertMsj("Congrats: Claim done!");
-            claim(claimConfig!.request);
+            //require(block.timestamp - userBalanceTimestamp > claimTerm, "Claims are not allowed yet");
+            getUserBalanceTimestamp();
+            getCurrentTimestamp();
+            console.log(" userBalanceTimestamp:", userBalanceTimestamp, " claimTerm:", claimTerm, " currentTimestamp:", currentTimestamp);
+            if (currentTimestamp! - userBalanceTimestamp! < claimTerm!) {
+                toast.error("Claims are not allowed yet");
+                console.error("Claims are not allowed yet");
+                return;
+            }
+            //uint256 entitled = (claimableFees * userShares) / totalShares;
+            //uint256 claimable = entitled - claimed[msg.sender];
+            //require(claimable > 0, "Nothing to claim");
+            getTotalShares();
+            getUserShares();
+            getClaimableFees();
+            getUserClaimed();
+            console.log("claimableFees:", claimableFees, " userShares:", userShares, " userClaimed:", userClaimed);
+            if ( (claimableFees! * userShares!) / totalShares! <= userClaimed!) {
+                toast.error("Nothing to claim");
+                console.error("Nothing to claim");
+                return;
+            }
+            
+            await claim({
+                address: FP_ADDR as `0x${string}`,
+                abi: feePoolAbi,
+                functionName: 'claim'
+            });
+            console.log("onClaim  claimHash:", claimHash);
+            toast.success("Congrats: Claim done!");
+
         } catch (err: any) {
-            setAlertMsj("");
             console.error("Claim Error onClaim:", err);
             // Extract a string error message from the error object
             const errorStr =
@@ -139,25 +196,37 @@ export default function LendPage() {
                     : err?.message || err?.reason || JSON.stringify(err);
 
             if (errorStr.includes("cancelled transaction")) {
-                showToast(
-                    `You rejected the request, please try again when you are ready to make the payment.`,
-                    "error"
-                );
+                toast.error("You rejected the request, please try again when you are ready to make the payment.");
             } else {
-                showToast("An error occurred while processing the claim. Please try again later.", "error");
+                toast.error("An error occurred while processing the deposit. Please try again later.");
             }
         } finally {
-
+            setIsLoading(false);
         }
     };
 
     const onWithdraw = async () => {
         if (!address) return;
+        setIsLoading(true);
         try {
-            setAlertMsj("Congrats: Withdrawal done!");
-            withdraw(withdrawConfig!.request);
+            getUserBalanceTimestamp();
+            getCurrentTimestamp();
+            console.log(" userBalanceTimestamp:", userBalanceTimestamp, " lockedInPeriod:", lockedInPeriod, " currentTimestamp:", currentTimestamp);
+            if (currentTimestamp! - userBalanceTimestamp! < lockedInPeriod!) {
+                toast.error("Withdraws are not allowed yet");
+                console.error("Withdraws are not allowed yet");
+                return;
+            }
+
+            await withdraw({
+                address: LP_ADDR as `0x${string}`,
+                abi: liquidityPoolAbi,
+                functionName: 'withdraw'
+            });
+            console.log("onWithdraw  withdrawHash:", withdrawHash);
+            toast.success("Congrats: Withdrawal done!");
+
         } catch (err: any) {
-            setAlertMsj("");
             console.error("Withdrawal Error onWithdraw:", err);
             // Extract a string error message from the error object
             const errorStr =
@@ -166,103 +235,92 @@ export default function LendPage() {
                     : err?.message || err?.reason || JSON.stringify(err);
 
             if (errorStr.includes("cancelled transaction")) {
-                showToast(
-                    `You rejected the request, please try again when you are ready to make the payment.`,
-                    "error"
-                );
+                toast.error("You rejected the request, please try again when you are ready to make the payment.");
             } else {
-                showToast("An error occurred while processing the withdrawal. Please try again later.", "error");
+                toast.error("An error occurred while processing the deposit. Please try again later.");
             }
         } finally {
-
+            setIsLoading(false);
         }
     };
 
     return (
-        <div className="space-y-8">
+        <div className="min-h-screen text-white flex flex-col items-center px-4 py-12">
             <h1 className="text-3xl font-bold mt-6 mb-6">Lend Now</h1>
             {address ? (
                 <>
-                    {/* Loading animation overlay */}
-                    {(depositConfirming || claimConfirming || withdrawConfirming) && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-60 z-10 rounded-lg">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-                            <p>Processing...</p>
-                        </div>
-                    )}
-                    {(depositConfirmed || claimConfirmed || withdrawConfirmed) && (
-                        <Alert variant="default" className="mb-6 slide-in-from-top animate-in">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>Confirmed</AlertTitle>
-                            <AlertDescription>{alertMsj}</AlertDescription>
-                        </Alert>
-                    )}
-                    {/* KPI Cards */}
-                    <div className="grid grid-cols-3 gap-4">
-                        <Card className="border-[#1453EE]/20">
-                            <CardHeader>
-                                <CardTitle className="text-[#1453EE]">Lending Pool</CardTitle>
-                                <CardDescription className="text-[#1453EE]/80">
-                                    Details about the lending pool
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    <div>
-                                        <h3 className="font-medium mb-1 text-[#1453EE]">Total Deposited</h3>
-                                        <p className="text-[#1453EE]/80">{`${Number(totalShares ?? 0) / 1e6} MXNe`}</p>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-medium mb-1 text-[#1453EE]">Your Share</h3>
-                                        <p className="text-[#1453EE]/80">{`${Number(userShares ?? 0) / 1e6} MXNe`}</p>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-medium mb-1 text-[#1453EE]">APY</h3>
-                                        <p className="text-[#1453EE]/80 break-all">~4.5%</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    <div className="w-full max-w-md mx-auto mt-6 mb-6 p-8 border border-[#264C73] rounded-lg space-y-6 text-center relative">
+                        {/* Loading animation overlay */}
+                        {withdrawConfirming && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-60 z-10 rounded-lg">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                                <p>Processing withdrawal...</p>
+                            </div>
+                        )}
+                        {/* Stepper UI */}
+                        <h2 className="text-2xl font-semibold mb-2">Lending Pool</h2>
+                        <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                        <span className="text-xl text-[#50e2c3]">Total Deposited</span>
+                        <p className="">{`${Number(totalShares ?? 0) / 1e6} MXNe`}</p>
+                        <span className="text-xl text-[#50e2c3]">Your Share</span>
+                        <p className="">{`${Number(userShares ?? 0) / 1e6} MXNe`}</p>
+                        <span className="text-xl text-[#50e2c3]">APY</span>
+                        <p className="">~4.5%</p>
+                        {userShares! > 0 && (
+                            <>
+                                <Button onClick={onWithdraw} disabled={withdrawIsPending} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{withdrawIsPending ? "Withdrawing…" : "Withdraw"}</Button>
+                            </>
+                        )}
+
                     </div>
 
                     {/* Deposit Widget */}
-                    <div className="p-6 bg-primary/90 rounded-lg">
-                        <h3>Deposit MXNe</h3>
-                        <input
+                    <div className="w-full max-w-md mx-auto mt-6 mb-6 p-8 border border-[#264C73] rounded-lg space-y-6 text-center relative">
+                        {/* Loading animation overlay */}
+                        {depositConfirming && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-60 z-10 rounded-lg">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                                <p>Processing deposit...</p>
+                            </div>
+                        )}
+                        <h2 className="text-2xl font-semibold mb-2">Deposit MXNe</h2>
+                        <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                        <span className="text-xl text-[#50e2c3]">You have</span>
+                        <p className="">{userBalanceInMXNData?.formatted} MXNe</p>
+                        <Input
                             type="number"
                             placeholder="Amount in MXNe"
                             value={depositAmt}
                             onChange={e => setDepositAmt(e.target.value)}
-                            className="p-2 rounded border"
+                            className="w-full p-3 rounded-md border border-gray-600 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-[#50e2c3]"
                         />
-                        <Button onClick={onDeposit} disabled={depositIsPending}>
-                            {depositIsPending ? "Depositing…" : "Deposit"}
-                        </Button>
+                        <Button onClick={onDeposit} disabled={approveDepositIsPending || depositIsPending || userShares! > 0} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{approveDepositIsPending || depositIsPending ? "Depositing…" : userShares! > 0 ? "Deposit done" : "Deposit"}</Button>
                     </div>
 
                     {/* Claim Rewards */}
-                    <div className="p-6 bg-primary/90 rounded-lg">
-                        <h3>Claim Rewards</h3>
-                        <Button onClick={onClaim} disabled={claimIsPending}>
-                            {claimIsPending ? "Claiming…" : "Claim"}
-                        </Button>
-                    </div>
-
-                    {/* Claim Rewards */}
-                    <div className="p-6 bg-primary/90 rounded-lg">
-                        <h3>Withdraw funds</h3>
-                        <Button onClick={onWithdraw} disabled={withdrawIsPending}>
-                            {withdrawIsPending ? "Withdrawing…" : "Withdraw"}
-                        </Button>
-                    </div>
+                    {userShares! > 0 && (
+                        <div className="w-full max-w-md mx-auto mt-6 mb-6 p-8 border border-[#264C73] rounded-lg space-y-6 text-center relative">
+                            {/* Loading animation overlay */}
+                            {claimConfirming && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-60 z-10 rounded-lg">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                                    <p>Processing claim...</p>
+                                </div>
+                            )}
+                            <h2 className="text-2xl font-semibold mb-2">Claim Rewards</h2>
+                            <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                            <Button onClick={onClaim} disabled={claimIsPending} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{claimIsPending ? "Claiming…" : "Claim"}</Button>
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="mt-8">
                     <p className="text-lg text-gray-500">
-                        Please connect your wallet to lend money and claim rewards.
+                        Please connect your wallet to scan the QR code and pay.
                     </p>
                 </div>
             )}
         </div>
+
     )
 }
