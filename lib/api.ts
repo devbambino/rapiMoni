@@ -1,6 +1,6 @@
 import { useAccount, useReadContract, useWriteContract, useSimulateContract } from 'wagmi';
-import {liquidityAbi} from '@/lib/liquiditypool-abi'
-import {feeAbi} from '@/lib/feepool-abi';
+import { liquidityPoolAbi } from "@/lib/liquiditypool-abi";
+import { feePoolAbi } from "@/lib/feepool-abi";
 import {microloanAbi} from '@/lib/microloan-abi'
 import { parseUnits } from 'viem';
 
@@ -10,7 +10,7 @@ const { writeContract } = useWriteContract();
 export function useUserShares() {
     const { data: shares } = useReadContract({
         address: process.env.NEXT_PUBLIC_LIQUIDITY_POOL! as `0x${string}`,
-        abi: liquidityAbi,
+        abi: liquidityPoolAbi,
         functionName: 'shares',
         args: [address!],
     });
@@ -20,25 +20,18 @@ export function useUserShares() {
 export function useDeposit(amount: string, tokenDecimals: number) {
     return writeContract({
         address: process.env.NEXT_PUBLIC_LIQUIDITY_POOL! as `0x${string}`,
-        abi: liquidityAbi,
+        abi: liquidityPoolAbi,
         functionName: 'deposit',
         args: [parseUnits(amount, tokenDecimals)],
     });
 }
 
-export function useWithdraw(sharesToBurn: string) {
-    return writeContract({
-        address: process.env.NEXT_PUBLIC_LIQUIDITY_POOL! as `0x${string}`,
-        abi: liquidityAbi,
-        functionName: 'withdraw',
-        args: [parseUnits(sharesToBurn, 18)],
-    });
-}
+
 
 export function useCollectFee(feeAmount: string) {
   return writeContract({
     address: process.env.NEXT_PUBLIC_FEE_POOL! as `0x${string}`,
-    abi: feeAbi,
+    abi: feePoolAbi,
     functionName: 'collectFee',
     args: [parseUnits(feeAmount, 6)],  // MXNe decimals
   });
@@ -47,22 +40,12 @@ export function useCollectFee(feeAmount: string) {
 export function useClaimFees() {
   return writeContract({
     address: process.env.NEXT_PUBLIC_FEE_POOL! as `0x${string}`,
-    abi: feeAbi,
+    abi: feePoolAbi,
     functionName: 'claim',
   });
 }
 
-export function useOpenLoan(collateralAmt: string, loanTermInSeconds: string) {
-  return writeContract({
-    address: process.env.NEXT_PUBLIC_MICROLOAN! as `0x${string}`,
-    abi: microloanAbi,
-    functionName: 'openLoan',
-    args: [
-      parseUnits(collateralAmt, 6), 
-      loanTermInSeconds
-    ],
-  });
-}
+
 
 export function useRepay(repaymentAmt: string) {
   return writeContract({
@@ -70,15 +53,6 @@ export function useRepay(repaymentAmt: string) {
     abi: microloanAbi,
     functionName: 'repay',
     args: [parseUnits(repaymentAmt, 6)],
-  });
-}
-
-export function useLiquidate() {
-  return writeContract({
-    address: process.env.NEXT_PUBLIC_MICROLOAN! as `0x${string}`,
-    abi: microloanAbi,
-    functionName: 'liquidate',
-    args: [address!],
   });
 }
 
