@@ -118,7 +118,7 @@ export default function ChargePage() {
             setPayload("");
             setLink("");
         }
-    }, [amount, token, description, allowFallback, enableBNPL, address]);
+    }, [amount, token, description, allowFallback, enableBNPL, loanTerm, address]);
 
     return (
         <div className="min-h-screen text-white flex flex-col items-center px-4 py-12">

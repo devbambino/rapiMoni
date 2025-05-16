@@ -30,7 +30,7 @@ export const config = createConfig({
   chains: [baseSepolia],
   // turn off injected provider discovery
   multiInjectedProviderDiscovery: false,
-  connectors: [wcWalletConnector],//[cbWalletConnector],
+  connectors: [wcWalletConnector, cbWalletConnector],//[cbWalletConnector],
   storage: createStorage({
     storage: cookieStorage,
   }),

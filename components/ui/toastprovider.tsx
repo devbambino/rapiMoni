@@ -36,7 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               ${toast.type === "success" ? "bg-green-600" : toast.type === "error" ? "bg-red-600" : "bg-gray-800"}
             `}
           >
-            {toast.message}
+            <center><strong>{toast.type.toUpperCase()}</strong></center><br/>{toast.message}
           </div>
         ))}
       </div>

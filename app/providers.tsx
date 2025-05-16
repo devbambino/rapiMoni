@@ -6,7 +6,7 @@ import { WagmiProvider } from "wagmi";
 //import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import Layout from "@/components/Layout";
 import { config } from "@/wagmi";
-import { Toaster } from "@/components/ui/sonner";
+import { ToastProvider } from '@/components/ui/toastprovider';
 
 export function Providers(props: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -15,8 +15,7 @@ export function Providers(props: { children: ReactNode }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <Layout>
-          {props.children}
-          <Toaster />
+          <ToastProvider>{props.children}</ToastProvider>
         </Layout>
       </QueryClientProvider>
     </WagmiProvider>
