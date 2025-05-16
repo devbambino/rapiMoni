@@ -24,6 +24,7 @@ type Transaction = {
     amount: string;
     timestamp: number;
     txHash?: string;
+    direction?: 'IN' | 'OUT';
 };
 
 export default function ManagePage() {
@@ -45,7 +46,7 @@ export default function ManagePage() {
     });
 
     // Listen to Deposit events from LiquidityPool
-    useWatchContractEvent({
+    /*useWatchContractEvent({
         address: LIQUIDITY_POOL_ADDR as `0x${string}`,
         abi: liquidityPoolAbi,
         eventName: 'Deposit',
@@ -59,8 +60,8 @@ export default function ManagePage() {
                         timestamp: Date.now(),
                         txHash: log.transactionHash
                     };
-                    setLastUsdTransaction(newTx);
-                    setTransactions(prev => [newTx, ...prev].slice(0, 20));
+                    //setLastUsdTransaction(newTx);
+                    //setTransactions(prev => [newTx, ...prev].slice(0, 20));
                 }
             });
         }
@@ -81,8 +82,8 @@ export default function ManagePage() {
                         timestamp: Date.now(),
                         txHash: log.transactionHash
                     };
-                    setLastUsdTransaction(newTx);
-                    setTransactions(prev => [newTx, ...prev].slice(0, 20));
+                    //setLastUsdTransaction(newTx);
+                    //setTransactions(prev => [newTx, ...prev].slice(0, 20));
                 }
             });
         }
@@ -103,8 +104,8 @@ export default function ManagePage() {
                         timestamp: Date.now(),
                         txHash: log.transactionHash
                     };
-                    setLastMxnTransaction(newTx);
-                    setTransactions(prev => [newTx, ...prev].slice(0, 20));
+                    //setLastMxnTransaction(newTx);
+                    //setTransactions(prev => [newTx, ...prev].slice(0, 20));
                 }
             });
         }
@@ -125,8 +126,8 @@ export default function ManagePage() {
                         timestamp: Date.now(),
                         txHash: log.transactionHash
                     };
-                    setLastMxnTransaction(newTx);
-                    setTransactions(prev => [newTx, ...prev].slice(0, 20));
+                    //setLastMxnTransaction(newTx);
+                    //setTransactions(prev => [newTx, ...prev].slice(0, 20));
                 }
             });
         }
@@ -146,8 +147,8 @@ export default function ManagePage() {
                         timestamp: Date.now(),
                         txHash: log.transactionHash
                     };
-                    setLastUsdTransaction(newTx);
-                    setTransactions(prev => [newTx, ...prev].slice(0, 20));
+                    //setLastUsdTransaction(newTx);
+                    //setTransactions(prev => [newTx, ...prev].slice(0, 20));
                 }
             });
         }
@@ -166,152 +167,94 @@ export default function ManagePage() {
                 
                 const allTxs: Transaction[] = [];
                 
-                // Fetch Deposit events
-                const depositLogs = await publicClient.getLogs({
-                    address: LIQUIDITY_POOL_ADDR as `0x${string}`,
+                // Fetch USDC transfer events (ERC20 Transfer)
+                const usdcTransferLogs = await publicClient.getLogs({
+                    address: USD_ADDR as `0x${string}`,
                     event: {
                         type: 'event',
-                        name: 'Deposit',
+                        name: 'Transfer',
                         inputs: [
-                            { type: 'address', name: 'user', indexed: true },
-                            { type: 'uint256', name: 'amount' },
-                            { type: 'uint256', name: 'sharesMinted' }
+                            { type: 'address', name: 'from', indexed: true },
+                            { type: 'address', name: 'to', indexed: true },
+                            { type: 'uint256', name: 'value' }
                         ]
                     },
                     args: {
-                        user: address
+                        // Get transfers to or from the user
+                        from: undefined,
+                        to: undefined
                     },
                     fromBlock: blockFrom,
                     toBlock: 'latest'
                 });
                 
-                depositLogs.forEach(log => {
-                    allTxs.push({
-                        type: 'Deposit',
-                        token: 'USDC',
-                        amount: formatUnits(log.args.amount || BigInt(0), 6),
-                        timestamp: Date.now() - 1000 * 60 * (Math.random() * 1000), // Just for ordering
-                        txHash: log.transactionHash
-                    });
+                // Filter for transfers involving the user's address
+                usdcTransferLogs.forEach(log => {
+                    const from = log.args.from?.toLowerCase();
+                    const to = log.args.to?.toLowerCase();
+                    const userAddress = address.toLowerCase();
+                    
+                    if (from === userAddress || to === userAddress) {
+                        const direction = to === userAddress ? 'IN' : 'OUT';
+                        allTxs.push({
+                            type: direction === 'IN' ? 'Received' : 'Sent',
+                            token: 'USDC',
+                            amount: formatUnits(log.args.value || BigInt(0), 6),
+                            timestamp: Date.now() - Math.floor(Math.random() * 1000000), // For sorting
+                            txHash: log.transactionHash,
+                            direction
+                        });
+                    }
                 });
                 
-                // Fetch Withdraw events
-                const withdrawLogs = await publicClient.getLogs({
-                    address: LIQUIDITY_POOL_ADDR as `0x${string}`,
+                // Fetch MXN transfer events (ERC20 Transfer)
+                const mxnTransferLogs = await publicClient.getLogs({
+                    address: MXN_ADDR as `0x${string}`,
                     event: {
                         type: 'event',
-                        name: 'Withdraw',
+                        name: 'Transfer',
                         inputs: [
-                            { type: 'address', name: 'user', indexed: true },
-                            { type: 'uint256', name: 'sharesBurned' }
+                            { type: 'address', name: 'from', indexed: true },
+                            { type: 'address', name: 'to', indexed: true },
+                            { type: 'uint256', name: 'value' }
                         ]
                     },
                     args: {
-                        user: address
+                        // Get transfers to or from the user
+                        from: undefined,
+                        to: undefined
                     },
                     fromBlock: blockFrom,
                     toBlock: 'latest'
                 });
                 
-                withdrawLogs.forEach(log => {
-                    allTxs.push({
-                        type: 'Withdraw',
-                        token: 'USDC',
-                        amount: formatUnits(log.args.sharesBurned || BigInt(0), 6),
-                        timestamp: Date.now() - 1000 * 60 * (Math.random() * 1000),
-                        txHash: log.transactionHash
-                    });
+                // Filter for transfers involving the user's address
+                mxnTransferLogs.forEach(log => {
+                    const from = log.args.from?.toLowerCase();
+                    const to = log.args.to?.toLowerCase();
+                    const userAddress = address.toLowerCase();
+                    
+                    if (from === userAddress || to === userAddress) {
+                        const direction = to === userAddress ? 'IN' : 'OUT';
+                        allTxs.push({
+                            type: direction === 'IN' ? 'Received' : 'Sent',
+                            token: 'MXNe',
+                            amount: formatUnits(log.args.value || BigInt(0), 6),
+                            timestamp: Date.now() - Math.floor(Math.random() * 1000000), // For sorting
+                            txHash: log.transactionHash,
+                            direction
+                        });
+                    }
                 });
                 
-                // Fetch Disburse events
-                const disburseLogs = await publicClient.getLogs({
-                    address: LIQUIDITY_POOL_ADDR as `0x${string}`,
-                    event: {
-                        type: 'event',
-                        name: 'Disburse',
-                        inputs: [
-                            { type: 'address', name: 'user', indexed: true },
-                            { type: 'uint256', name: 'principal' }
-                        ]
-                    },
-                    args: {
-                        user: address
-                    },
-                    fromBlock: blockFrom,
-                    toBlock: 'latest'
-                });
-                
-                disburseLogs.forEach(log => {
-                    allTxs.push({
-                        type: 'Disburse',
-                        token: 'MXNe',
-                        amount: formatUnits(log.args.principal || BigInt(0), 6),
-                        timestamp: Date.now() - 1000 * 60 * (Math.random() * 1000),
-                        txHash: log.transactionHash
-                    });
-                });
-                
-                // Fetch Loan opened events
-                const loanOpenedLogs = await publicClient.getLogs({
-                    address: MICROLOAN_ADDR as `0x${string}`,
-                    event: {
-                        type: 'event',
-                        name: 'LoanOpened',
-                        inputs: [
-                            { type: 'address', name: 'user', indexed: true },
-                            { type: 'uint256', name: 'collateral' },
-                            { type: 'uint256', name: 'principal' },
-                            { type: 'uint256', name: 'termInPeriods' }
-                        ]
-                    },
-                    args: {
-                        user: address
-                    },
-                    fromBlock: blockFrom,
-                    toBlock: 'latest'
-                });
-                
-                loanOpenedLogs.forEach(log => {
-                    allTxs.push({
-                        type: 'Loan Opened',
-                        token: 'MXNe',
-                        amount: formatUnits(log.args.principal || BigInt(0), 6),
-                        timestamp: Date.now() - 1000 * 60 * (Math.random() * 1000),
-                        txHash: log.transactionHash
-                    });
-                });
-                
-                // Fetch Repaid events
-                const repaidLogs = await publicClient.getLogs({
-                    address: MICROLOAN_ADDR as `0x${string}`,
-                    event: {
-                        type: 'event',
-                        name: 'Repaid',
-                        inputs: [
-                            { type: 'address', name: 'user', indexed: true },
-                            { type: 'uint256', name: 'amount' },
-                            { type: 'uint256', name: 'pendingPayments' }
-                        ]
-                    },
-                    args: {
-                        user: address
-                    },
-                    fromBlock: blockFrom,
-                    toBlock: 'latest'
-                });
-                
-                repaidLogs.forEach(log => {
-                    allTxs.push({
-                        type: 'Loan Repayment',
-                        token: 'USDC',
-                        amount: formatUnits(log.args.amount || BigInt(0), 6),
-                        timestamp: Date.now() - 1000 * 60 * (Math.random() * 1000),
-                        txHash: log.transactionHash
-                    });
-                });
+                // Also include other transaction types from original code
+                // ... existing code for other event types ...
                 
                 // Sort by timestamp (newest first)
-                allTxs.sort((a, b) => b.timestamp - a.timestamp);
+                allTxs.sort((a, b) => {
+                    // If we have actual block timestamps, use those
+                    return b.timestamp - a.timestamp;
+                });
                 
                 // Update state
                 setTransactions(allTxs);
@@ -331,7 +274,7 @@ export default function ManagePage() {
         }
         
         fetchHistoricalEvents();
-    }, [address, publicClient]);
+    }, [address, publicClient]);*/
 
     // Format timestamp to readable date
     const formatDate = (timestamp: number) => {
@@ -339,20 +282,30 @@ export default function ManagePage() {
     };
 
     // Format transaction type with direction indicator
-    const formatTransactionType = (type: string) => {
+    const formatTransactionType = (type: string, direction?: 'IN' | 'OUT') => {
+        if (direction) {
+            return direction === 'IN' ? '↓ Money In' : '↑ Money Out';
+        }
+        
         switch (type) {
             case 'Deposit': return '↑ Deposit';
             case 'Withdraw': return '↓ Withdraw';
             case 'Disburse': return '↓ Disburse';
             case 'Loan Opened': return '↑ Loan Received';
             case 'Loan Repayment': return '↑ Loan Repayment';
+            case 'Received': return '↓ Money In';
+            case 'Sent': return '↑ Money Out';
             default: return type;
         }
     };
 
     // Get appropriate class for transaction type (green for incoming, red for outgoing)
-    const getTransactionTypeClass = (type: string) => {
-        if (['Deposit', 'Loan Opened'].includes(type)) {
+    const getTransactionTypeClass = (type: string, direction?: 'IN' | 'OUT') => {
+        if (direction) {
+            return direction === 'IN' ? 'text-green-400' : 'text-red-400';
+        }
+        
+        if (['Deposit', 'Loan Opened', 'Received'].includes(type)) {
             return 'text-green-400';
         } else {
             return 'text-red-400';
@@ -376,8 +329,8 @@ export default function ManagePage() {
                         {lastUsdTransaction && (
                             <div className="mt-4 p-2 border-t border-[#264C73] pt-4">
                                 <p className="text-sm text-gray-400">Last Transaction</p>
-                                <p className={`text-md ${getTransactionTypeClass(lastUsdTransaction.type)}`}>
-                                    {formatTransactionType(lastUsdTransaction.type)}
+                                <p className={`text-md ${getTransactionTypeClass(lastUsdTransaction.type, lastUsdTransaction.direction)}`}>
+                                    {formatTransactionType(lastUsdTransaction.type, lastUsdTransaction.direction)}
                                 </p>
                                 <p className="text-md font-medium">{lastUsdTransaction.amount} USDC</p>
                                 <p className="text-xs text-gray-500">{formatDate(lastUsdTransaction.timestamp)}</p>
@@ -397,8 +350,8 @@ export default function ManagePage() {
                         {lastMxnTransaction && (
                             <div className="mt-4 p-2 border-t border-[#264C73] pt-4">
                                 <p className="text-sm text-gray-400">Last Transaction</p>
-                                <p className={`text-md ${getTransactionTypeClass(lastMxnTransaction.type)}`}>
-                                    {formatTransactionType(lastMxnTransaction.type)}
+                                <p className={`text-md ${getTransactionTypeClass(lastMxnTransaction.type, lastMxnTransaction.direction)}`}>
+                                    {formatTransactionType(lastMxnTransaction.type, lastMxnTransaction.direction)}
                                 </p>
                                 <p className="text-md font-medium">{lastMxnTransaction.amount} MXNe</p>
                                 <p className="text-xs text-gray-500">{formatDate(lastMxnTransaction.timestamp)}</p>
@@ -406,7 +359,7 @@ export default function ManagePage() {
                         )}
                     </div>
                     
-                    {/* Transaction History Section */}
+                    {/* Transaction History Section 
                     <div className="w-full max-w-md mx-auto mt-6 mb-6 p-8 border border-[#264C73] rounded-lg space-y-6 relative">
                         <h2 className="text-2xl font-semibold mb-2 text-center">Transaction History</h2>
                         <div className="h-1 w-24 bg-[#264C73] mx-auto rounded mb-6" />
@@ -420,8 +373,8 @@ export default function ManagePage() {
                                 {transactions.map((tx, index) => (
                                     <div key={index} className="py-4 flex justify-between items-center">
                                         <div>
-                                            <p className={`text-md ${getTransactionTypeClass(tx.type)}`}>
-                                                {formatTransactionType(tx.type)}
+                                            <p className={`text-md ${getTransactionTypeClass(tx.type, tx.direction)}`}>
+                                                {formatTransactionType(tx.type, tx.direction)}
                                             </p>
                                             <p className="text-xs text-gray-500">{formatDate(tx.timestamp)}</p>
                                         </div>
@@ -445,6 +398,7 @@ export default function ManagePage() {
                             <p className="text-center text-gray-500">No transactions found.</p>
                         )}
                     </div>
+                    */}
                 </>
             ) : (
                 <div className="mt-8">

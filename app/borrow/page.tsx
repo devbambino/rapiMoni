@@ -100,9 +100,8 @@ export default function BorrowPage() {
     const userCollateral = userCollateralData as bigint | undefined;
 
     // Calculate values only once per render using useMemo
-    const elapsed = useMemo(() => loan ? (Date.now() / 1000 - Number(loan.startTime)) : 0, [loan]);
     const pct = useMemo(() => loan ? Number(loan.paid) / Number(loan.principal) * 100 : 0, [loan]);
-    const nextDue = useMemo(() => loan ? Number(loan.startTime) + Number(loan.term / loan.termInPeriods) * (1 + Number(loan.termInPeriods - loan.pendingPayments)) : 0, [loan]);
+    const nextDue = useMemo(() => loan && loan.termInPeriods > 0 ? Number(loan.startTime) + Number(loan.term / loan.termInPeriods) * (1 + Number(loan.termInPeriods - loan.pendingPayments)) : 0, [loan]);
     const minPayment = useMemo(() => loan && loan.pendingPayments > BigInt(0) ? (loan.principal - loan.paid) / loan.pendingPayments : BigInt(0), [loan]);
 
     // Hooks for repay functionality - MUST be called unconditionally
@@ -151,7 +150,7 @@ export default function BorrowPage() {
 
     // Now that all hooks are called and initial loading/error states are handled, check for active loan
     // This conditional return must come AFTER all hook calls.
-    if (!loan || !loan.active) {
+    /*if (!loan || !loan.active) {
         return (
             <div className="text-center mt-20 py-20 space-y-6">
                 <BanknoteX className="h-20 w-20 text-[#50e2c3] mx-auto mb-4" />
@@ -159,7 +158,7 @@ export default function BorrowPage() {
                 <a href="/pay" className="p-4 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Start a new purchase</a>
             </div>
         )
-    }
+    }*/
 
     const onRepay = async () => {
         if (!address) return;
@@ -256,22 +255,29 @@ export default function BorrowPage() {
                     <p>Error fetching loan details. Please try again later.</p>
                 </div>
             ) : !loan || !loan.active ? (
-                <div className="text-center mt-20 py-20 space-y-6">
-                    <BanknoteX className="h-20 w-20 text-[#50e2c3] mx-auto mb-4" />
-                    <p>You have no active loan</p>
-                    <a href="/pay" className="p-4 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Start a new purchase</a>
-                    <div className="w-full max-w-md mx-auto mb-6 p-8 border border-[#264C73] rounded-lg space-y-6 text-center relative">
-                        {withdrawConfirming && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-60 z-10 rounded-lg">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
-                                <p>Processing withdrawal...</p>
-                            </div>
-                        )}
-                        <h2 className="text-2xl font-semibold mb-2">Collateral</h2>
-                        <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
-                        <span className="text-[#50e2c3]">Locked Amount</span>
-                        <p className="text-xl">{(Number(userCollateral) / 1e6).toFixed(2)} USDC</p>
-                        {userCollateral && Number(userCollateral) > 0 && (
+
+                <div className="w-full max-w-md mx-auto text-center py-10 space-y-6">
+                    
+                    {poolBalanceInMXNData && (
+                        <div className="w-full max-w-md mx-auto mt-6 mb-6 p-8 border border-[#264C73] rounded-lg space-y-6 text-center relative">
+                            <h2 className="text-2xl font-semibold mb-2">Borrowing Pool</h2>
+                            <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                            <span className="text-[#50e2c3]">Available to Borrow</span>
+                            <p className="text-xl">{poolBalanceInMXNData!.formatted} MXNe</p>
+                        </div>
+                    )}
+                    {Number(userCollateral) > 0 && (
+                        <div className="w-full max-w-md mx-auto mt-6 p-8 border border-[#264C73] rounded-lg space-y-6 text-center relative">
+                            {withdrawConfirming && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-60 z-10 rounded-lg">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                                    <p>Processing withdrawal...</p>
+                                </div>
+                            )}
+                            <h2 className="text-2xl font-semibold mb-2">Collateral</h2>
+                            <div className="h-1 w-16 bg-[#264C73] mx-auto rounded mb-6" />
+                            <span className="text-[#50e2c3]">Locked Amount</span>
+                            <p className="text-xl">{(Number(userCollateral) / 1e6).toFixed(2)} USDC</p>
                             <Button
                                 onClick={onWithdraw}
                                 disabled={withdrawIsPending || withdrawConfirming}
@@ -279,9 +285,13 @@ export default function BorrowPage() {
                             >
                                 {withdrawIsPending || withdrawConfirming ? "Withdrawing…" : "Withdraw"}
                             </Button>
-                        )}
 
-                    </div>
+                        </div>
+                    )}
+                    <BanknoteX className="h-20 w-20 text-[#50e2c3] mx-auto mt-6" />
+                    <p>You have no active loan</p>
+                    <a href="/pay" className="p-4 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Start a new purchase</a>
+                    
 
                 </div>
             ) : (
