@@ -34,7 +34,7 @@ _Check out a quick walkthrough of QR payments and microloan flows._
 
 ## Solution 
 RapiMoni tackles these challenges by combining:
-* **QR/URL-Based Payments** (no app required): Merchants deploy dynamic on-chain invoices; customers pay in MXNe, BRZ or USDC.
+* **QR/URL-Based Payments** (no app required): Merchants deploy dynamic on-chain invoices; customers pay in MXNe or USDC.
 * **Zero-Interest Microloans**: One active loan per user, collateralized at 120% USDC, repaid over 1–6 months. Merchant fees fund the model—no interest for users.
 * **On-Chain Swaps**: If a customer lacks local stablecoin, they can swap USDC→MXNe via Aerodrome pools.
 * **Lender Yield**: 90% of microloan fees flow to liquidity providers (MXNe depositors); 10% to protocol treasury.
@@ -90,7 +90,7 @@ RapiMoni tackles these challenges by combining:
 
 #### Data & Integration
 
-* **Oracles**: Chainlink USD/MXN feed (or fallback) for pricing and collateral calculations.
+* **Oracles**: USD/MXN feed (or fallback) for pricing and collateral calculations.
 * **Swaps**: Aerodrome CLPool for USDC↔MXNe swapping when needed.
 * **Frontend**: React app with WAGMI hooks for ManagePage, PayPage, ChargePage, LendPage, BorrowPage, leveraging the above contracts.
 
