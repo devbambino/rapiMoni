@@ -56,15 +56,7 @@ export const WalletConnect = () => {
           </div>
         ) : (
           <div className="flex gap-2">
-            <Button
-              onClick={() => connect({ connector: wcWalletConnector })}
-              variant="gradient"
-              size="sm"
-              className="flex items-center gap-1.5 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full"
-            >
-              <Wallet className="h-4 w-4 text-[#50e2c3] hover:text-white" />
-              walC
-            </Button>
+            
             <Button
               onClick={() => connect({ connector: cbWalletConnector })}
               variant="gradient"
@@ -72,7 +64,7 @@ export const WalletConnect = () => {
               className="flex items-center gap-1.5 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full"
             >
               <Wallet className="h-4 w-4 text-[#50e2c3] hover:text-white" />
-              CoinB
+              Sign In
             </Button>
           </div>
         )}
