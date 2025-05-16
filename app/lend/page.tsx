@@ -219,6 +219,17 @@ export default function LendPage() {
                 return;
             }
 
+            getTotalShares();
+            getUserShares();
+            getClaimableFees();
+            getUserClaimed();
+            console.log("claimableFees:", claimableFees, " userShares:", userShares, " userClaimed:", userClaimed);
+            if ((claimableFees! * userShares!) / totalShares! > userClaimed!) {
+                showToast("Please first claim your yield and then do withdrawal!!!", "error");
+                console.error("pending claims");
+                return;
+            }
+
             if (userShares! > poolBalanceInMXNData!.value) {
                 showToast("Not enough MXNe in the pool yet, but we have added you to the waiting list.", "error");
                 console.log("onWithdraw Not enough MXNe in the pool yet, but we have added you to the waiting list.");
