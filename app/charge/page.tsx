@@ -35,15 +35,6 @@ export default function ChargePage() {
 
     const { showToast } = useToast();
 
-    // Helper to resolve token address
-    const getTokenAddress = (token: string) => {
-        switch (token) {
-            case "brl": return BRZTokenAddress!;
-            case "mxn": return MXNTokenAddress!;
-            default: return USDTokenAddress!;
-        }
-    };
-
     // Update subtotals and payload
     useEffect(() => {
         if (amount && !isNaN(Number(amount))) {
@@ -149,7 +140,6 @@ export default function ChargePage() {
                                 value={token}
                                 onChange={(e) => setToken(e.target.value)}
                             >
-                                <option value="brl">BRL</option>
                                 <option value="mxn">MXN</option>
                                 <option value="usd">USD</option>
                             </select>

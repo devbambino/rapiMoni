@@ -22,10 +22,6 @@ export default function LendPage() {
     const { showToast } = useToast();
     const { address } = useAccount();
     const [depositAmt, setDepositAmt] = useState("");
-    //const [isLoading, setIsLoading] = useState<boolean>(false);
-    const estimatedAPY = 12 * 0.9;
-    const [userEstimatedAPY, setUserEstimatedAPY] = useState("");
-    const [userPendingClaims, setUserPendingClaims] = useState("");
 
     const { data: userBalanceInMXNData, refetch: getUserBalanceMXN, isLoading: isUserBalanceInMXNLoading } = useBalance({
         address,
@@ -34,10 +30,6 @@ export default function LendPage() {
     const { data: poolBalanceInMXNData, refetch: getPoolBalanceMXN } = useBalance({
         address: LP_ADDR as `0x${string}`,
         token: MXN_ADDR as `0x${string}` | undefined,
-    });
-    const { data: poolBalanceInUSDData, refetch: getPoolBalanceUSD } = useBalance({
-        address: LP_ADDR as `0x${string}`,
-        token: USD_ADDR as `0x${string}` | undefined,
     });
 
     // Fetch pools info
@@ -53,7 +45,6 @@ export default function LendPage() {
     const { data: userClaimed, refetch: getUserClaimed, isLoading: isUserClaimedLoading } = useReadContract({ address: FP_ADDR as `0x${string}`, abi: feePoolAbi, functionName: 'claimed', args: [address!] });
 
     const { data: approveDepositHash, error: approveDepositError, writeContractAsync: approveDeposit, isPending: approveDepositIsPending } = useWriteContract();
-    const { isLoading: approveDepositConfirming, isSuccess: approveDepositConfirmed } = useWaitForTransactionReceipt({ hash: approveDepositHash });
     const { data: depositHash, error: depositError, writeContractAsync: deposit, isPending: depositIsPending } = useWriteContract();
     const { isLoading: depositConfirming, isSuccess: depositConfirmed } = useWaitForTransactionReceipt({ hash: depositHash });
 
@@ -68,6 +59,7 @@ export default function LendPage() {
             getTotalShares();
             getUserShares();
             getUserBalanceMXN();
+            getPoolBalanceMXN();
             getClaimableFees();
             getUserClaimed();
             getTotalFees();
@@ -95,25 +87,6 @@ export default function LendPage() {
                 console.log("onDeposit You have already deposited funds, for adding more please withdraw all first.");
                 return;
             }
-
-            /*const depositId = await writeContractsAsync({
-                contracts: [
-                    {
-                        abi: usdcAbi,// reuse usdcAbi as it has similar functions
-                        address: MXN_ADDR as `0x${string}`,
-                        functionName: 'approve',
-                        args: [LP_ADDR as `0x${string}`, parseUnits(depositAmt, 6)],
-                    },
-                    {
-                        address: LP_ADDR as `0x${string}`,
-                        abi: liquidityPoolAbi,
-                        functionName: 'deposit',
-                        args: [parseUnits(depositAmt, 6)],
-                    }
-                ],
-            });
-            console.log("onDeposit depositId:", depositId);
-            await new Promise(res => setTimeout(res, 1000));*/
 
             await approveDeposit({
                 abi: usdcAbi,// reuse usdcAbi as it has similar functions
@@ -166,9 +139,6 @@ export default function LendPage() {
                 console.error("Claims are not allowed yet");
                 return;
             }
-            //uint256 entitled = (claimableFees * userShares) / totalShares;
-            //uint256 claimable = entitled - claimed[msg.sender];
-            //require(claimable > 0, "Nothing to claim");
             getTotalShares();
             getUserShares();
             getClaimableFees();
@@ -338,7 +308,7 @@ export default function LendPage() {
                             <span className="text-[#50e2c3]">Claimed Yield</span>
                             <p className="text-xl">{formatUnits(userClaimed!, 6)} MXNe</p>
                             <span className="text-[#50e2c3]">Estimated Yield</span>
-                            <p className="text-xl">{Number(claimableFees!) / Number(totalShares!) * 100}%</p>
+                            <p className="text-xl">{(Number(claimableFees!) / Number(totalShares!) * 100).toFixed(2)}%</p>
                             <Button onClick={onClaim} disabled={claimIsPending} className="mt-2 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">{claimIsPending ? "Claiming…" : "Claim"}</Button>
                         </div>
                     )}

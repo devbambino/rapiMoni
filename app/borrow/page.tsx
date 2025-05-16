@@ -1,11 +1,10 @@
 "use client"
-import { useState, useEffect, useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useBalance } from "wagmi"
-import { liquidityPoolAbi } from "@/lib/liquiditypool-abi";
 import { usdcAbi } from "@/lib/usdc-abi";
 import { microloanAbi } from "@/lib/microloan-abi";
 import { useToast } from "@/components/ui/toastprovider";
-import { parseUnits, formatUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { Button } from "@/components/ui/button";
 import { BanknoteX, Loader2 } from "lucide-react";
 
@@ -34,14 +33,6 @@ export default function BorrowPage() {
     const { data: userBalanceInMXNData, refetch: getUserBalanceMXN } = useBalance({
         address,
         token: MXN_ADDR as `0x${string}` | undefined,
-    });
-    const { data: userBalanceInUSDData, refetch: getUserBalanceUSD } = useBalance({
-        address,
-        token: USD_ADDR as `0x${string}` | undefined,
-    });
-    const { data: poolBalanceInUSDData, refetch: getPoolBalanceUSD } = useBalance({
-        address: MA_ADDR as `0x${string}`,
-        token: USD_ADDR as `0x${string}` | undefined,
     });
     const { data: poolBalanceInMXNData, refetch: getPoolBalanceMXN } = useBalance({
         address: LP_ADDR as `0x${string}`,
@@ -79,8 +70,8 @@ export default function BorrowPage() {
     // Log only when rawLoanData changes, not on every render
     useEffect(() => {
         if (rawLoanData) {
-            console.log("Raw loan data:", rawLoanData);
-            console.log("Parsed loan:", loan);
+            //console.log("Raw loan data:", rawLoanData);
+            //console.log("Parsed loan:", loan);
         }
     }, [rawLoanData]);
 
@@ -106,7 +97,6 @@ export default function BorrowPage() {
 
     // Hooks for repay functionality - MUST be called unconditionally
     const { data: approveRepayHash, error: approveRepayError, writeContractAsync: approveRepay, isPending: approveRepayIsPending } = useWriteContract();
-    const { isLoading: approveRepayConfirming, isSuccess: approveRepayConfirmed } = useWaitForTransactionReceipt({ hash: approveRepayHash });
     const { data: repayHash, error: repayError, writeContractAsync: repay, isPending: repayIsPending } = useWriteContract();
     const { isLoading: repayConfirming, isSuccess: repayConfirmed } = useWaitForTransactionReceipt({ hash: repayHash });
 
@@ -147,18 +137,6 @@ export default function BorrowPage() {
             </div>
         );
     }
-
-    // Now that all hooks are called and initial loading/error states are handled, check for active loan
-    // This conditional return must come AFTER all hook calls.
-    /*if (!loan || !loan.active) {
-        return (
-            <div className="text-center mt-20 py-20 space-y-6">
-                <BanknoteX className="h-20 w-20 text-[#50e2c3] mx-auto mb-4" />
-                <p>You have no active loan</p>
-                <a href="/pay" className="p-4 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Start a new purchase</a>
-            </div>
-        )
-    }*/
 
     const onRepay = async () => {
         if (!address) return;

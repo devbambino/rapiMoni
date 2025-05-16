@@ -31,13 +31,13 @@ export default function Home() {
   ];
 
   const lenderSteps: Step[] = [
-    { step: '1', title: 'Deposit', desc: 'Deposit funds in MXNe/BRZ' },
+    { step: '1', title: 'Deposit', desc: 'Deposit funds in MXNe' },
     { step: '2', title: 'Yield', desc: 'View APY & claimable fees, 90% of loan fees' },
     { step: '3', title: 'Manage', desc: 'Withdraw funds or claimable yield' },
   ];
 
   useEffect(() => {
-    if (isConnected) router.push('/pay');
+    if (isConnected) router.push('/manage');
   }, [address, isConnected, router]);
 
   return (
@@ -49,7 +49,7 @@ export default function Home() {
             Empowering Purchases, Empowering You
           </h1>
           <p className="mt-4 text-lg md:text-xl max-w-2xl mx-auto">
-            Scan a QR or click a link to pay instantly in MXNe/BRZ/USDC. Or choose zero-interest BNPL—one loan at a time, with USDC collateral, automated liquidation, and daily rewards.
+            Scan a QR or click a link to pay instantly in MXNe/USDC. Or choose zero-interest BNPL—one loan at a time, with USDC collateral, and yield.
           </p>
           <Button
                 onClick={() => connect({ connector: cbWalletConnector })}
@@ -74,7 +74,6 @@ export default function Home() {
             width={80}
             height={40}
           />
-          <Image src="/partners/aave.svg" alt="Aave" width={80} height={40} />
           <Image
             src="/partners/chainlink.svg"
             alt="Chainlink"
@@ -94,8 +93,8 @@ export default function Home() {
           {[
             { title: 'QR/URL Payments', desc: 'Scan or click to pay—no app needed.' },
             { title: 'One-Loan BNPL', desc: 'Single active microloan with zero interest, sponsored by merchants.' },
-            { title: 'Automated Swaps', desc: 'Seamless USDC↔MXNe/BRZ via Aerodrome.' },
-            { title: 'Multi-Rail Cash', desc: 'USDC ↔ local fiat via Coinbase On/OffRamp.' },
+            { title: 'Swaps', desc: 'Seamless USDC↔MXNe via Aerodrome.' },
+            { title: 'Multi-Rail Cash', desc: 'USDC ↔ local fiat via Coinbase OffRamp.' },
             { title: 'Lender Rewards', desc: '90% loan fees to lenders, daily claims.' },
             { title: 'Secure Collateral', desc: '120% USDC locked, Chainlink-backed pricing.' },
           ].map((f) => (

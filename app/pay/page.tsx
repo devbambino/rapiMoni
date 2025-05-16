@@ -21,7 +21,7 @@ const MXN_ADDR = process.env.NEXT_PUBLIC_MXN_ADDRESS; // Testnet
 const BRZ_ADDR = process.env.NEXT_PUBLIC_BRZ_ADDRESS; // Testnet
 const MA_ADDR = process.env.NEXT_PUBLIC_MANAGER_ADDRESS!;
 const LP_ADDR = process.env.NEXT_PUBLIC_LIQUIDITY_POOL_ADDRESS!;
-const mockMerchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS;
+//const mockMerchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS;
 
 /*function useUsdMxnRate() {
     const { data: roundData } = useReadContract({
@@ -38,8 +38,6 @@ const mockMerchantAddress = process.env.NEXT_PUBLIC_MERCHANT_ADDRESS;
 
 // Helper to get token decimals (defaulting to 6 for USDC, MXN etc.)
 const getTokenDecimals = (tokenSymbol: string) => {
-    // In a real app, this might come from a config or contract call
-    // For now, assume common stablecoins have 6 decimals
     return 6;
 };
 
@@ -48,7 +46,6 @@ export default function PayPage() {
     const { address } = useAccount();
     const fxRate = 19.48;//useUsdMxnRate(); 1 USD is X MXN
     const { writeContractsAsync } = useWriteContracts();
-    const { writeContract, writeContractAsync } = useWriteContract(); // Added writeContractAsync here
     const [payload, setPayload] = useState<{
         merchant: string;
         description: string;
@@ -80,12 +77,10 @@ export default function PayPage() {
     const { data: userBalanceInMerchantsTokenData, refetch: getUserBalanceMerchantsToken } = useBalance({
         address,
         token: merchantTokenAddress as `0x${string}` | undefined,
-        //query: { enabled: !!merchantTokenAddress && !!address }
     });
     const { data: userBalanceInUSDData, refetch: getUserBalanceUSD } = useBalance({
         address,
         token: USD_ADDR as `0x${string}` | undefined,
-        //query: { enabled: !!USD_ADDR && !!address }
     });
     const { data: poolBalanceInMXNData, refetch: getPoolBalanceMXN } = useBalance({
         address: LP_ADDR as `0x${string}`,
@@ -156,7 +151,7 @@ export default function PayPage() {
     const handlePayDirectWithMerchantToken = async () => {
         if (!payload || !address || !merchantTokenAddress) return;
         setIsLoading(true);
-        const { amount } = payload;
+        const { amount, merchant } = payload;
         const amountInSmallestUnit = parseUnits(amount, merchantTokenDecimals);
         const fee = parseUnits((Number(amount) * rate).toFixed(merchantTokenDecimals), merchantTokenDecimals); // fee in smallest unit
         const amountToMerchant = amountInSmallestUnit - fee;
@@ -166,12 +161,12 @@ export default function PayPage() {
                 contracts: [
                     {
                         address: merchantTokenAddress as `0x${string}`,
-                        abi: usdcAbi, // Assuming ERC20 transfer
+                        abi: usdcAbi, 
                         functionName: 'transfer',
-                        args: [mockMerchantAddress as `0x${string}`, amountToMerchant],
+                        args: [merchant as `0x${string}`, amountToMerchant],
                     },
                     {
-                        abi: usdcAbi, // Assuming ERC20 transfer
+                        abi: usdcAbi, 
                         address: merchantTokenAddress as `0x${string}`,
                         functionName: 'transfer',
                         args: [rapiMoniAddress! as `0x${string}`, fee],
@@ -212,6 +207,7 @@ export default function PayPage() {
     const handleExecuteConfirmedUSDPayment = async () => {
         if (!payload || !address || !quote) return;
         setIsLoading(true);
+        const { merchant } = payload;
         const usdAmountInSmallestUnit = parseUnits(quote, usdDecimals);
         const feeInUSD = parseUnits((Number(quote) * rate).toFixed(usdDecimals), usdDecimals);
         const amountToMerchantUSD = usdAmountInSmallestUnit - feeInUSD;
@@ -223,7 +219,7 @@ export default function PayPage() {
                         address: USD_ADDR as `0x${string}`,
                         abi: usdcAbi,
                         functionName: 'transfer',
-                        args: [mockMerchantAddress as `0x${string}`, amountToMerchantUSD],
+                        args: [merchant as `0x${string}`, amountToMerchantUSD],
                     },
                     {
                         abi: usdcAbi,
@@ -299,7 +295,7 @@ export default function PayPage() {
                     parseUnits(collateralAmountUSD.toFixed(usdDecimals), usdDecimals), // Collateral in USD (smallest unit)
                     parseUnits(loanAmountMerchantToken.toFixed(merchantTokenDecimals), merchantTokenDecimals), // Loan amount in Merchant Token (smallest unit)
                     BigInt(loanTerm), // Loan term (e.g., in days, ensure it's a whole number)
-                    mockMerchantAddress as `0x${string}` // Merchant address to pay
+                    merchant as `0x${string}` // Merchant address to pay
                 ],
             }).catch(err => {
                 handleError(err); // Handle error if openLoan call itself fails immediately
