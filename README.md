@@ -14,14 +14,26 @@
 
 ---
 
+## IMPORTANT!!!!
+
+The app is working on Base Sepolia. You will need Sepolia ETH, USDC and Test MXNe for testing. For getting Test MXNe tokens please contact me at devbambinoacc@gmail.com.
+
+All the smart contracts are located inside `/contracts`. There you could use `TestMXNe.sol` for deploying your own version of Test MXNe tokens.
+
+The term period for the loans are scaled down to 2 min(120 secs) for testing, so 1 month of term adds 2 mins to the term inside the smart contract.
+
+---
+
 ## Intro 
 RapiMoni is a Layer-2 DeFi platform built on Base, designed to bring seamless payments and zero-interest microloans to underbanked communities in Latin America. With just a web browser and a wallet, merchants can generate QR codes or URL links to accept payments in local stablecoins—MXNe (pegged to MXN)—and users can choose to pay on the spot or tap into a Buy-Now-Pay-Later microloan collateralized with USDC.
+
+Check RapiMoni out at: www.rapimoni.com
 
 ---
 
 ## Quick Demo  
-![RapiMoni Demo](./docs/rapimoni-demo.gif)  
-_Check out a quick walkthrough of QR payments and microloan flows._
+![RapiMoni Demo](https://youtu.be/epzRZL6Aldc)  
+_Check out a quick walkthrough of QR/URL payments and microloan flows for Mexico._
 
 ---
 
@@ -100,6 +112,24 @@ RapiMoni tackles these challenges by combining:
 
 ---
 
+## Proof Of Deployment
+
+### RapiMoni Contracts in Base Sepolia
+```bash
+NEXT_PUBLIC_LIQUIDITY_POOL_ADDRESS=0xc1Cde6Fb555cdC4d58e6b41c4754D5Fc8bc61531
+NEXT_PUBLIC_FEE_POOL_ADDRESS=0xF4a53704D6267FA9842639F09397E079BFE75F52
+NEXT_PUBLIC_MANAGER_ADDRESS=0xd75f49DbF59aa7cc59c41066122b255eBfA47260
+```
+
+### RapiMoni Contracts in Base Mainnet
+```bash
+NEXT_PUBLIC_LIQUIDITY_POOL_ADDRESS=0x6D3254e211378F11DFEe2F75a3A42825096ecAf7
+NEXT_PUBLIC_FEE_POOL_ADDRESS=0x2aF37428C75Ef929a7B0973CEfC8C3BFfBbD39cA
+NEXT_PUBLIC_MANAGER_ADDRESS=0x374B51C4966853012B631Df184839F11ca786950
+```
+
+---
+
 ## Installation  
 ```bash
 git clone https://github.com/devbambino/rapimoni.git
@@ -107,16 +137,10 @@ cd rapimoni
 npm install
 ```
 
-Create a `.env.local` with your keys:
+- Create a `.env` with your keys and copy `.env.template`:
 
-```bash
-NEXT_PUBLIC_AERODROME_SWAP_POOL_FROM_MXNE_URL=
-NEXT_PUBLIC_AERODROME_SWAP_POOL_TO_MXNE_URL=
-NEXT_PUBLIC_COINBASE_OFFRAMP_APPID=
-NEXT_PUBLIC_COINBASE_OFFRAMP_URL="https://pay.coinbase.com/v3/sell/input?appId=&partnerUserId=testUser&addresses={"0x...":["base"]}&assets=["USDC"]&redirectUrl=https://www.rapimoni.com/manage"
-```
 
-Start the dev server:
+- Start the dev server:
 
 ```bash
 npm run dev
@@ -154,7 +178,7 @@ npm run dev
 | ----------- | --------------------------------------------------------------------------- |
 | **Phase 1** | QR/URL payments, merchant/customer/lender flows.                            |
 | **Phase 2** | Microloan flow. Smart contracts: LiquidityPool, MicroloanManager, FeePool.  |
-| **Phase 3** | Oracle integration, multi-rail on/off ramps, comprehensive testing.         |
+| **Phase 3** | Oracle integration, multi-rail off ramps, comprehensive testing.         |
 | **Phase 4** | Mainnet deployment & merchant partnerships.                                 |
 | **Future**  | YieldManager on Aave, RewardsManager, MONI token launch.                    |
 
@@ -162,6 +186,6 @@ npm run dev
 
 ## Acknowledgments
 
-* Special thanks to the Coinbase and Base team for building a wonderful suit of tools that made this project possible.
+* Special thanks to the Brale(MXNe), Aerodrome, Coinbase and Base team for building a wonderful suit of tools that made this project possible.
 
 ---
