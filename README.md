@@ -32,7 +32,8 @@ Check RapiMoni out at: www.rapimoni.com
 ---
 
 ## Quick Demo  
-![RapiMoni Demo](https://youtu.be/epzRZL6Aldc)  
+
+[▶️ View Demo on YouTube](https://youtu.be/epzRZL6Aldc)
 _Check out a quick walkthrough of QR/URL payments and microloan flows for Mexico._
 
 ---
