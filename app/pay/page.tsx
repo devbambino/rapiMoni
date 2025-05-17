@@ -45,7 +45,8 @@ export default function PayPage() {
     const { showToast } = useToast();
     const { address } = useAccount();
     const fxRate = 19.48;//useUsdMxnRate(); 1 USD is X MXN
-    const { writeContractsAsync } = useWriteContracts();
+    //const { writeContractsAsync } = useWriteContracts();
+    const { writeContractAsync } = useWriteContract();
     const [payload, setPayload] = useState<{
         merchant: string;
         description: string;
@@ -157,23 +158,19 @@ export default function PayPage() {
         const amountToMerchant = amountInSmallestUnit - fee;
 
         try {
-            const hashPay = await writeContractsAsync({
-                contracts: [
-                    {
-                        address: merchantTokenAddress as `0x${string}`,
-                        abi: usdcAbi, 
-                        functionName: 'transfer',
-                        args: [merchant as `0x${string}`, amountToMerchant],
-                    },
-                    {
-                        abi: usdcAbi, 
-                        address: merchantTokenAddress as `0x${string}`,
-                        functionName: 'transfer',
-                        args: [rapiMoniAddress! as `0x${string}`, fee],
-                    }
-                ],
+            const hashApprove = await writeContractAsync({
+                address: merchantTokenAddress as `0x${string}`,
+                abi: usdcAbi, 
+                functionName: 'transfer',
+                args: [merchant as `0x${string}`, amountToMerchant],
             });
-            setTxHash(hashPay.id);
+            const hashPay = await writeContractAsync({
+                abi: usdcAbi, 
+                address: merchantTokenAddress as `0x${string}`,
+                functionName: 'transfer',
+                args: [rapiMoniAddress! as `0x${string}`, fee],
+            });
+            setTxHash(hashPay);
             setStep("done");
             setIsBnplPaymentDone(false);
             showToast("Successful payment!", "success");
@@ -213,23 +210,19 @@ export default function PayPage() {
         const amountToMerchantUSD = usdAmountInSmallestUnit - feeInUSD;
 
         try {
-            const hashPay = await writeContractsAsync({
-                contracts: [
-                    {
-                        address: USD_ADDR as `0x${string}`,
-                        abi: usdcAbi,
-                        functionName: 'transfer',
-                        args: [merchant as `0x${string}`, amountToMerchantUSD],
-                    },
-                    {
-                        abi: usdcAbi,
-                        address: USD_ADDR as `0x${string}`,
-                        functionName: 'transfer',
-                        args: [rapiMoniAddress! as `0x${string}`, feeInUSD],
-                    }
-                ],
+            const hashApprove = await writeContractAsync({
+                address: USD_ADDR as `0x${string}`,
+                abi: usdcAbi,
+                functionName: 'transfer',
+                args: [merchant as `0x${string}`, amountToMerchantUSD],
             });
-            setTxHash(hashPay.id);
+            const hashPay = await writeContractAsync({
+                abi: usdcAbi,
+                address: USD_ADDR as `0x${string}`,
+                functionName: 'transfer',
+                args: [rapiMoniAddress! as `0x${string}`, feeInUSD],
+            });
+            setTxHash(hashPay);
             setStep("done");
             setIsBnplPaymentDone(false);
             showToast("Payment with USD successful!", "success");

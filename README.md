@@ -15,7 +15,7 @@
 ---
 
 ## Intro 
-RapiMoni is a Layer-2 DeFi platform built on Base, designed to bring seamless payments and zero-interest microloans to underbanked communities in Latin America. With just a web browser and a wallet, merchants can generate QR codes or URL links to accept payments in local stablecoins—MXNe (pegged to MXN) or BRZ (pegged to BRL)—and users can choose to pay on the spot or tap into a Buy-Now-Pay-Later microloan collateralized with USDC.
+RapiMoni is a Layer-2 DeFi platform built on Base, designed to bring seamless payments and zero-interest microloans to underbanked communities in Latin America. With just a web browser and a wallet, merchants can generate QR codes or URL links to accept payments in local stablecoins—MXNe (pegged to MXN)—and users can choose to pay on the spot or tap into a Buy-Now-Pay-Later microloan collateralized with USDC.
 
 ---
 
