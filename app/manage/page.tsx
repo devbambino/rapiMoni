@@ -42,7 +42,7 @@ export default function ManagePage() {
                         <span className="text-[#50e2c3]">You have</span>
                         <p className="text-2xl font-bold">{Number(userBalanceInUSDData?.formatted).toFixed(2)} USDC</p>
                         <a href={`https://pay.coinbase.com/v3/sell/input?appId=58a3fa2e-617f-4198-81e7-096f5e498c00&partnerUserId=rapiMoniUser&addresses={"${address}":["base"]}&assets=["USDC"]&redirectUrl=https://www.rapimoni.com/manage`} target="_blank" className="p-4 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Withdraw To Bank</a>
-                        <br/><br/><a href={AERODROME_SWAP_USDC_URL} target="_blank" className="p-4 mt-10 bg-[#264C73] hover:bg-[#50e2c3] text-white hover:text-gray-900 rounded-full">Swap to MXNe</a>
+                        <br/>
                     </div>
                     
                     {/* MXN section */}

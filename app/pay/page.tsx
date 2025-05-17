@@ -11,7 +11,7 @@ import { useWriteContracts } from 'wagmi/experimental';
 import { parseUnits, formatUnits } from 'viem';
 //import chainlinkUsdMxnAbi from '@/lib/chainlink-usd-mxn-abi.json';
 
-const rate = Number(process.env.NEXT_PUBLIC_RAPIMONI_FEE); // Fee rate charged per payment
+const rate = Number(process.env.NEXT_PUBLIC_RAPIMONI_FEE)/100; // Fee rate charged per payment
 const rapiMoniAddress = process.env.NEXT_PUBLIC_RAPIMONI_WALLET; // wallet address for collecting fees
 const COLLATERAL_RATIO = 1.2; // collateral should be 120% of the product price
 const USD_MXN_FEED = process.env.NEXT_PUBLIC_CHAINLINK_USD_MXN_FEED!;
@@ -45,7 +45,7 @@ export default function PayPage() {
     const { showToast } = useToast();
     const { address } = useAccount();
     const fxRate = 19.48;//useUsdMxnRate(); 1 USD is X MXN
-    //const { writeContractsAsync } = useWriteContracts();
+    const { writeContractsAsync } = useWriteContracts();
     const { writeContractAsync } = useWriteContract();
     const [payload, setPayload] = useState<{
         merchant: string;
@@ -153,24 +153,27 @@ export default function PayPage() {
         if (!payload || !address || !merchantTokenAddress) return;
         setIsLoading(true);
         const { amount, merchant } = payload;
-        const amountInSmallestUnit = parseUnits(amount, merchantTokenDecimals);
-        const fee = parseUnits((Number(amount) * rate).toFixed(merchantTokenDecimals), merchantTokenDecimals); // fee in smallest unit
+        const amountInSmallestUnit = parseUnits(amount, 6);
+        const fee = parseUnits(`${Number(amount) * rate}`, 6); // fee in smallest unit
         const amountToMerchant = amountInSmallestUnit - fee;
+        //console.log("handlePayDirectWithMerchantToken fee:",fee," amountToMerchant:",amountToMerchant)
 
         try {
-            const hashApprove = await writeContractAsync({
-                address: merchantTokenAddress as `0x${string}`,
-                abi: usdcAbi, 
-                functionName: 'transfer',
-                args: [merchant as `0x${string}`, amountToMerchant],
-            });
-            const hashPay = await writeContractAsync({
-                abi: usdcAbi, 
-                address: merchantTokenAddress as `0x${string}`,
-                functionName: 'transfer',
-                args: [rapiMoniAddress! as `0x${string}`, fee],
-            });
-            setTxHash(hashPay);
+            const hashPay = await writeContractsAsync({contracts: [
+                {
+                    address: merchantTokenAddress as `0x${string}`,
+                    abi: usdcAbi, 
+                    functionName: 'transfer',
+                    args: [merchant as `0x${string}`, amountToMerchant],
+                },
+                {
+                    abi: usdcAbi, 
+                    address: merchantTokenAddress as `0x${string}`,
+                    functionName: 'transfer',
+                    args: [rapiMoniAddress! as `0x${string}`, fee],
+                }
+            ]});
+            setTxHash(hashPay.id);
             setStep("done");
             setIsBnplPaymentDone(false);
             showToast("Successful payment!", "success");
@@ -206,8 +209,9 @@ export default function PayPage() {
         setIsLoading(true);
         const { merchant } = payload;
         const usdAmountInSmallestUnit = parseUnits(quote, usdDecimals);
-        const feeInUSD = parseUnits((Number(quote) * rate).toFixed(usdDecimals), usdDecimals);
+        const feeInUSD = parseUnits(`${Number(quote) * rate}`, usdDecimals);
         const amountToMerchantUSD = usdAmountInSmallestUnit - feeInUSD;
+        //console.log("handleExecuteConfirmedUSDPayment fee:",feeInUSD," amountToMerchant:",amountToMerchantUSD)
 
         try {
             const hashApprove = await writeContractAsync({
