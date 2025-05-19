@@ -22,6 +22,8 @@ All the smart contracts are located inside `/contracts`. There you could use `Te
 
 The term period for the loans are scaled down to 2 min(120 secs) for testing, so 1 month of term adds 2 mins to the term inside the smart contract.
 
+For checking the proof of deployment go to: [Proof of Deployment](#proof-of-deployment)
+
 ---
 
 ## Intro 
@@ -128,6 +130,10 @@ NEXT_PUBLIC_LIQUIDITY_POOL_ADDRESS=0x6D3254e211378F11DFEe2F75a3A42825096ecAf7
 NEXT_PUBLIC_FEE_POOL_ADDRESS=0x2aF37428C75Ef929a7B0973CEfC8C3BFfBbD39cA
 NEXT_PUBLIC_MANAGER_ADDRESS=0x374B51C4966853012B631Df184839F11ca786950
 ```
+
+### RapiMoni Contracts transactions in Base Mainnet
+Here you could see the approve, deposit, and withdraw transactions in RapiMoni's Liquidity Pool contract deployed to Base Mainnet, demostrating how a lender could provide liquidity in real MXNe tokens to enable the BNPL option for the users(borrowers) and safely withdraw their tokens after the locked in period is completed(in our case 12 mins after the deposit is made):
+https://basescan.org/address/0x6d3254e211378f11dfee2f75a3a42825096ecaf7
 
 ---
 
