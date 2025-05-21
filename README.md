@@ -16,7 +16,10 @@
 
 ## IMPORTANT!!!!
 
-The app is working on Base Sepolia. You will need Sepolia ETH, USDC and Test MXNe for testing. For getting Test MXNe tokens please contact me at devbambinoacc@gmail.com.
+The app is working on Base Sepolia. You will need Sepolia ETH, USDC and Test MXNe for testing. 
+For getting Test MXNe tokens you have two options:
+1. I've created a smart contract faucet for Test MXNe tokens, deployed to Base Sepolia. You only need to send Sepolia ETH from your wallet to the SC's address(`0xc70D51E8b96bf8f7b11aE9Aa51083fFdB817Fc7F`) in Base Sepolia and the SC will automatically transfer back the corresponding amount of Test MXNe tokens(the FX rate is 1 ETH to 49000 MXNe). As a reference, for getting 100 Test MXNe you would need to send around 0.002 Sepolia ETH. Each wallet could receive up to 4000 Test MXNe tokens(around 200 USD), which would be more than enough for testing the app. The Faucet smart contract is located at `/contracts/TokenFaucet.sol`. For checking the real time liquidity of the faucet in Sepolia Basescan [click here](https://sepolia.basescan.org/address/0xc70D51E8b96bf8f7b11aE9Aa51083fFdB817Fc7F), which is currently around 40000 Test MXNe tokens.
+2. Contacting me at devbambinoacc@gmail.com with your ETH address and I will send you tokens.
 
 All the smart contracts are located inside `/contracts`. There you could use `TestMXNe.sol` for deploying your own version of Test MXNe tokens.
 
@@ -122,6 +125,9 @@ RapiMoni tackles these challenges by combining:
 NEXT_PUBLIC_LIQUIDITY_POOL_ADDRESS=0xc1Cde6Fb555cdC4d58e6b41c4754D5Fc8bc61531
 NEXT_PUBLIC_FEE_POOL_ADDRESS=0xF4a53704D6267FA9842639F09397E079BFE75F52
 NEXT_PUBLIC_MANAGER_ADDRESS=0xd75f49DbF59aa7cc59c41066122b255eBfA47260
+#Test Tokens
+NEXT_PUBLIC_MXNE_ADDRESS=0x0cE47838bCf7A9643F8d572bd490163e2549C074
+TEST_MXNE_FAUCET=0xc70D51E8b96bf8f7b11aE9Aa51083fFdB817Fc7F
 ```
 
 ### RapiMoni Contracts in Base Mainnet
