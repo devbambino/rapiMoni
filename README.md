@@ -19,7 +19,7 @@
 The app is working on Base Sepolia. You will need Sepolia ETH, USDC and Test MXNe for testing. 
 For getting Test MXNe tokens you have two options:
 1. I've created a smart contract faucet for Test MXNe tokens, deployed to Base Sepolia. You only need to send Sepolia ETH from your wallet to the SC's address(`0xc70D51E8b96bf8f7b11aE9Aa51083fFdB817Fc7F`) in Base Sepolia and the SC will automatically transfer back the corresponding amount of Test MXNe tokens(the FX rate is 1 ETH to 49000 MXNe). As a reference, for getting 100 Test MXNe you would need to send around 0.002 Sepolia ETH. Each wallet could receive up to 4000 Test MXNe tokens(around 200 USD), which would be more than enough for testing the app. The Faucet smart contract is located at `/contracts/TokenFaucet.sol`. For checking the real time liquidity of the faucet in Sepolia Basescan [click here](https://sepolia.basescan.org/address/0xc70D51E8b96bf8f7b11aE9Aa51083fFdB817Fc7F), which is currently around 40000 Test MXNe tokens.
-2. Contacting me at devbambinoacc@gmail.com with your ETH address and I will send you tokens.
+2. Contact me at devbambinoacc@gmail.com with your ETH address and I will send you tokens.
 
 All the smart contracts are located inside `/contracts`. There you could use `TestMXNe.sol` for deploying your own version of Test MXNe tokens.
 
